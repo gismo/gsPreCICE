@@ -8,7 +8,7 @@
     License, v. 2.0. If a copy of the MPL was not distributed with this
     file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-    Author(s): H.M. Verhelst (TU Delft, 2019-...)
+    Author(s): H.M. Verhelst (University of Pavia),  J.Li (TU Delft, 2023-...)
 */
 
 #pragma once
@@ -22,7 +22,7 @@ namespace gismo
 
 /**
  * @brief      Class defining a gsFunction that reads from the precice::SolverInterface
- *
+ * @usage      Combine with gsElasticity module to update boundary conditions.
  * @tparam     T     Number format
  */
 template <class T>

@@ -11,7 +11,7 @@
     Solid solver: quadrature point
     Fluid solver: displacements on its control points
 
-    Author(s): H.M. Verhelst
+    Author(s): J.Li (TU Delft, 2023-...)
 */
 
 #include <gismo.h>

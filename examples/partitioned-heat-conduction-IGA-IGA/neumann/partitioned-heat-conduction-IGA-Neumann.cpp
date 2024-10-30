@@ -1,8 +1,8 @@
 /// This is the fluid-structure interaction benchmark FSI2 from this paper:
 /// "Proposal for numerical benchmarking of fluid-structure interaction between an elastic object and laminar incompressible flow"
 /// Stefan Turek and Jaroslav Hron, <Fluid-Structure Interaction>, 2006.
+/// Author(s): H.M. Verhelst (University of Pavia),  J.Li (TU Delft, 2023-...)
 ///
-/// Author: A.Shamanskiy (2016 - ...., TU Kaiserslautern)
 #include <gismo.h>
 #include <gsElasticity/gsElasticityAssembler.h>
 #include <gsElasticity/gsElTimeIntegrator.h>

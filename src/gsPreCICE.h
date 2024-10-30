@@ -8,9 +8,9 @@
     License, v. 2.0. If a copy of the MPL was not distributed with this
     file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-    Author(s): H.M. Verhelst (TU Delft, 2019-...), J.Li (TU Delft, 2023-...)
+    Author(s): H.M. Verhelst (University of Pavia),  J.Li (TU Delft, 2023-...)
 
-    Summary of Functions:
+    @details Summary of Functions:
     1. Constructors:
         - gsPreCICE() DEFAULT
         - gsPreCICE(std::string participantName, std::string configurationFileName): 

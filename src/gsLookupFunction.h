@@ -1,6 +1,6 @@
 /** @file gsLookupFunction.h
 
-    @brief Provides declaration of gsLookupFunction class.
+    @brief Provides declaration of gsLookupFunction class. 
 
     This file is part of the G+Smo library.
 
@@ -8,7 +8,7 @@
     License, v. 2.0. If a copy of the MPL was not distributed with this
     file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-    Author(s): H.M. Verhelst (TU Delft, 2019-...)
+    Author(s): H.M. Verhelst (University of Pavia),  J.Li (TU Delft, 2023-...)
 */
 
 #pragma once
@@ -20,9 +20,13 @@ namespace gismo
 {
 
 /**
- * @brief      Class defining a function that looks up registered data on points
- *
- * @tparam     T     Number format
+ * @brief      Class defining a function that looks up registered data on points.
+ * @usage      Combine with gsThinShellAssembler to update the stress on the solid. 
+ * @details   The gsLookupFunction enables
+ *            efficient data lookups based on spatial coordinates. When given a set of points and corresponding
+ *            data, it creates a mapping that allows for quick retrieval of the data based on the point 
+ *            coordinates. 
+ * @param     T     Number format
  */
 template <class T>
 class gsLookupFunction : public gsFunction<T>

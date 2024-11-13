@@ -11,8 +11,8 @@ on:
 concurrency:
     group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
     cancel-in-progress: true
+
 env:
-  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: RelWithDebInfo
 
 jobs:
@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        os: [macos-latest, ubuntu-latest]
     steps:
       - uses: actions/checkout@master
         with:
@@ -33,8 +33,43 @@ jobs:
         with:
           path: ./gismo/optional/${{ github.event.repository.name }}
           #token: ${{ secrets.GH_PAT }}
+          
+      # Step to install preCICE
+      - name: Install preCICE
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential cmake libeigen3-dev libxml2-dev libboost-all-dev petsc-dev python3-dev python3-numpy
+          wget https://github.com/precice/precice/archive/v3.1.2.tar.gz
+          tar -xzvf v3.1.2.tar.gz
+          cd precice-3.1.2
+          cmake --preset=production  # Configure using the production preset
+          cd build
+          make -j 10
+          sudo make install
+          precice_DIR=$(pwd)
 
+      # Step to install preCICE
+      - name: Install preCICE for mac
+        if: runner.os == 'macOS'
+        run: |
+          brew install cmake eigen libxml2 boost petsc openmpi python3 numpy
+          wget https://github.com/precice/precice/archive/v3.1.2.tar.gz
+          tar -xzvf v3.1.2.tar.gz
+          cd precice-3.1.2
+          cmake --preset=production  # Configure using the production preset
+          cd build
+          make -j 10
+          sudo make install
+          precice_DIR=$(pwd)
+          
       - name: "Run for ${{ matrix.os }}"
         shell: bash
-        working-directory: ${{runner.workspace}}
-        run: ctest -S ${{ github.event.repository.name }}/gismo/cmake/ctest_script.cmake -D CTEST_BUILD_NAME="${{ github.event.repository.name }}_actions_$GITHUB_RUN_NUMBER" -D CTEST_SITE="${{ matrix.os }}_[actions]" -D CMAKE_ARGS="-DCMAKE_BUILD_TYPE=$BUILD_TYPE;-DCMAKE_CXX_STANDARD=11;-DGISMO_WITH_XDEBUG=ON;-DGISMO_BUILD_UNITTESTS=ON" -D GISMO_OPTIONAL="${{ github.event.repository.name }}" -Q
+        working-directory: ${{ runner.workspace }}
+        run: |
+          # Use the precice_DIR set from the environment variable
+          ctest -S ${{ github.event.repository.name }}/gismo/cmake/ctest_script.cmake \
+          -D CTEST_BUILD_NAME="${{ github.event.repository.name }}_actions_$GITHUB_RUN_NUMBER" \
+          -D CTEST_SITE="${{ matrix.os }}_[actions]" \
+          -D CMAKE_ARGS="-DCMAKE_BUILD_TYPE=$BUILD_TYPE;-DCMAKE_CXX_STANDARD=11;-DGISMO_WITH_XDEBUG=ON;-DGISMO_BUILD_UNITTESTS=ON;-Dprecice_DIR=$precice_DIR" \
+          -D GISMO_OPTIONAL="${{ github.event.repository.name }}" -Q

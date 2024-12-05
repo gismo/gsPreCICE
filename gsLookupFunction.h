@@ -21,10 +21,15 @@ namespace gismo
 {
 
 /**
- * @brief      Class defining a function that looks up registered data on points
- *
- * @tparam     T     Number format
+ * @brief      Class defining a function that looks up registered data on points.
+ * @usage      Combine with gsThinShellAssembler to update the stress on the solid. 
+ * @details   The gsLookupFunction enables
+ *            efficient data lookups based on spatial coordinates. When given a set of points and corresponding
+ *            data, it creates a mapping that allows for quick retrieval of the data based on the point 
+ *            coordinates. 
+ * @param     T     Number format
  */
+
 template <class T>
 class gsLookupFunction : public gsFunction<T>
 {
@@ -95,19 +100,6 @@ public:
         gsDebugVar(u);
         result.resize(this->targetDim(),u.cols());
         result.setZero();
-
-        // // 打印 m_map 的内容
-        // gsInfo << "Content of m_map in eval_into:\n";
-        // // Print m_map content without structured bindings
-        // for (auto it = m_map.begin(); it != m_map.end(); ++it)
-        // {
-        //     gsInfo << "Key: ";
-        //     for (int i = 0; i < it->first.size(); ++i)
-        //     {
-        //         gsInfo << it->first[i] << " ";
-        //     }
-        //     gsInfo << "=> Value: " << it->second << "\n";
-        // }
 
         for (index_t k = 0; k!= u.cols(); k++)
         {

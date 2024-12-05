@@ -9,6 +9,38 @@
     file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
     Author(s): H.M. Verhelst (TU Delft, 2019-2024), J.Li (TU Delft, 2023 - ...)
+    
+    @details Summary of Functions:
+    1. Constructors:
+        - gsPreCICE() DEFAULT
+        - gsPreCICE(std::string participantName, std::string configurationFileName): 
+        Initializes the solver interface with custom participant and configuration names.
+    2. Coupling Status:
+        - isCouplingOngoing(): Checks if coupling between solvers is still ongoing.
+        - isTimeWindowComplete(): Checks if the time window for communication is complete.
+        - requiresInitialData(): Checks if initial data is required (preCICE v3.0.0).
+        - requiresReadingCheckpoint(): Checks if checkpoint reading is required.
+        - requiresWritingCheckpoint(): Checks if checkpoint writing is required.
+    3. Initialization:
+        - initialize(): Initializes the solver interface, sets time variables, and returns the maximum timestep size.
+        - addMesh(): Adds a mesh to the preCICE interface by providing a mesh name and a matrix of points 
+          (optionally returns vertex IDs).
+    4. Data Handling
+        - readData(): Reads scalar data from a mesh by coordinates or vertex IDs.
+        - writeData(): Writes scalar data to a mesh by coordinates or vertex IDs.
+    5. Mesh Handling
+        - getMeshVertexIDsFromPositions(): Retrieves mesh vertex IDs from positions, 
+          ensuring mesh point compatibility.
+        - setMeshAccessRegion(): Sets an access region for a mesh using bounding boxes.
+        - getMeshVertexIDsAndCoordinates(): Retrieves the vertex IDs and coordinates for a given mesh name.
+        - getMeshID(): Returns the mesh ID based on a mesh name.
+    6. Timing Information
+        - readTime(): Returns the total time spent reading data.
+        - writeTime(): Returns the total time spent writing data.
+        - initializeTime(): Returns the total time spent during initialization.
+    7. Advance & Finalize:
+        - advance(T dt): Advances the solver interface by a timestep.
+        - finalize(): Finalizes the preCICE solver interface when the coupling is complete.
 */
 
 #pragma once
@@ -319,6 +351,7 @@ public:
      * @see getMeshVertexSize() to get the amount of vertices in the mesh
      * @see getMeshDimensions() to get the spacial dimensionality of the mesh
      */
+
     void getMeshVertexIDsAndCoordinates(const std::string & meshName, gsVector<index_t> & IDs, gsMatrix<T> & coords) const
     {
         const index_t nPoints = m_interface.getMeshVertexSize(meshName);

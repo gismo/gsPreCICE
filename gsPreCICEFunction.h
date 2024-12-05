@@ -22,7 +22,7 @@ namespace gismo
 
 /**
  * @brief      Class defining a gsFunction that reads from the precice::SolverInterface
- *
+ * @details    The gsPreCICEFunction enables efficient data lookups based on spatial coordinates. When given a set of points and corresponding
  * @tparam     T     Number format
  */
 template <class T>

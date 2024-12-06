@@ -9,7 +9,7 @@
 |Repository|[gismo/gismo/gsPreCICE](https://github.com/gismo/gsPreCICE)|
 |Developer|[Hugo Verhelst](https://github.com/hverhelst), [Jingya Li](https://github.com/Crazy-Rich-Meghan) |
 |Dependency|[preCICE v.3](https://github.com/gismo/gsPreCICE)|
-|Maintainer|[j.li-9@tudelft.nl](mailto:j.li-9@tudelft.nl)|
+|Maintainer|[Jingya Li](https://github.com/Crazy-Rich-Meghan), [Hugo Verhelst](https://github.com/hverhelst)|
 
 ## Start here
 

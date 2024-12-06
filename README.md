@@ -11,7 +11,6 @@
 |Dependency|[preCICE v.3](https://github.com/gismo/gsPreCICE)|
 |Maintainer|[j.li-9@tudelft.nl](mailto:j.li-9@tudelft.nl)|
 
-
 ## Start here
 
 1. Install [preCICE](https://precice.org/quickstart.html).
@@ -50,6 +49,8 @@ cd fluid-<other solvers>
 
 **Note**: You need to perform steps 2 and 5 if you want to run the simulation with other libraries.
 
+## Examples
+- [Partitioned Heat Conduction](examples/partitioned-heat-conduction/README.md)
 
 ## Versions
 

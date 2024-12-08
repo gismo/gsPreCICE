@@ -53,4 +53,11 @@ set(gismo_UNITTESTS ${gismo_UNITTESTS} ${unittests_SRCS}
   CACHE INTERNAL "gismo list of unittests")
 
 # Look for CMakeLists.txt in examples
-add_subdirectory(examples)
+# add example files
+if(GISMO_BUILD_EXAMPLES)
+    add_custom_target(${PROJECT_NAME}-examples)
+    add_subdirectory(examples)
+else()
+    add_subdirectory(examples EXCLUDE_FROM_ALL)
+endif(GISMO_BUILD_EXAMPLES)
+

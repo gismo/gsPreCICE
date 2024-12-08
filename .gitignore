@@ -38,6 +38,8 @@
 *.pvd
 *.vtk
 
+# Files from macOS
+.DS_Store
 
 # Log files
 *.log

@@ -71,6 +71,6 @@ jobs:
           ctest -S ${{ github.event.repository.name }}/gismo/cmake/ctest_script.cmake \
           -D CTEST_BUILD_NAME="${{ github.event.repository.name }}_actions_$GITHUB_RUN_NUMBER" \
           -D CTEST_SITE="${{ matrix.os }}_[actions]" \
-          -D LABELS_FOR_SUBPROJECTS="gsPreCICE-examples"   \
+          -D LABELS_FOR_SUBPROJECTS="gsPreCICE-examples"    \
           -D CMAKE_ARGS="-DCMAKE_BUILD_TYPE=$BUILD_TYPE;-DCMAKE_CXX_STANDARD=11;-DGISMO_WITH_XDEBUG=ON;-DGISMO_BUILD_UNITTESTS=ON;-Dprecice_DIR=$precice_DIR" \
           -D GISMO_OPTIONAL="gsElasticity\\;${{ github.event.repository.name }}" -Q

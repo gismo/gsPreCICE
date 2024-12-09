@@ -23,9 +23,7 @@ preCICE configuration (image generated using the [precice-config-visualizer](htt
 In the G+Smo build folder, build the tutorial file.
 
 ```
-make partitioned-heat-conduction -j <#threads>
-make partitioned-heat-conduction-IGA-dirichlet -j <#threads>
-make partitioned-heat-conduction-IGA-neumann -j <#threads>
+make <participant file> -j <#threads>
 ```
 
 Go to the gismo-executable folder and link the compiled executable to the gismo_executable.

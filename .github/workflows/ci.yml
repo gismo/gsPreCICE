@@ -9,11 +9,12 @@ on:
       - main
 
 concurrency:
-    group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-    cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
 
 env:
   BUILD_TYPE: RelWithDebInfo
+  PRECICE_VERSION: v3.1.2
 
 jobs:
   build:
@@ -23,54 +24,39 @@ jobs:
       matrix:
         os: [macos-latest, ubuntu-latest]
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v3
         with:
           repository: gismo/gismo
           ref: stable
           path: ./gismo
 
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v3
         with:
           path: ./gismo/optional/${{ github.event.repository.name }}
-          #token: ${{ secrets.GH_PAT }}
 
-      # Step to install preCICE
       - name: Install preCICE
-        if: runner.os == 'Linux'
         run: |
-          sudo apt update
-          sudo apt install -y build-essential cmake libeigen3-dev libxml2-dev libboost-all-dev petsc-dev python3-dev python3-numpy
-          wget https://github.com/precice/precice/archive/v3.1.2.tar.gz
-          tar -xzvf v3.1.2.tar.gz
-          cd precice-3.1.2
-          cmake --preset=production  # Configure using the production preset
-          cd build
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            sudo apt update
+            sudo apt install -y build-essential cmake libeigen3-dev libxml2-dev libboost-all-dev petsc-dev python3-dev python3-numpy
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            brew install cmake eigen libxml2 boost petsc openmpi python3 numpy
+          fi
+          wget https://github.com/precice/precice/archive/$PRECICE_VERSION.tar.gz
+          tar -xzvf $PRECICE_VERSION.tar.gz
+          cd precice-${PRECICE_VERSION/v/}
+          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local ..
           make -j 10
           sudo make install
-          precice_DIR=$(pwd)
+          export precice_DIR=$(pwd)/..
 
-      # Step to install preCICE
-      - name: Install preCICE for mac
-        if: runner.os == 'macOS'
-        run: |
-          brew install cmake eigen libxml2 boost petsc openmpi python3 numpy
-          wget https://github.com/precice/precice/archive/v3.1.2.tar.gz
-          tar -xzvf v3.1.2.tar.gz
-          cd precice-3.1.2
-          cmake --preset=production  # Configure using the production preset
-          cd build
-          make -j 10
-          sudo make install
-          precice_DIR=$(pwd)
-
-      - name: "Run for ${{ matrix.os }}"
+      - name: Run Tests
         shell: bash
-        working-directory: ${{ runner.workspace }}
+        working-directory: ${{ github.workspace }}
         run: |
-          # Use the precice_DIR set from the environment variable
-          ctest -S ${{ github.event.repository.name }}/gismo/cmake/ctest_script.cmake \
-          -D CTEST_BUILD_NAME="${{ github.event.repository.name }}_actions_$GITHUB_RUN_NUMBER" \
+          ctest -S ${{ github.repository }}/gismo/cmake/ctest_script.cmake \
+          -D CTEST_BUILD_NAME="${{ github.repository }}_actions_$GITHUB_RUN_NUMBER" \
           -D CTEST_SITE="${{ matrix.os }}_[actions]" \
-          -D LABELS_FOR_SUBPROJECTS="gsPreCICE-examples"    \
+          -D LABELS_FOR_SUBPROJECTS="gsPreCICE-examples" \
           -D CMAKE_ARGS="-DCMAKE_BUILD_TYPE=$BUILD_TYPE;-DCMAKE_CXX_STANDARD=11;-DGISMO_WITH_XDEBUG=ON;-DGISMO_BUILD_UNITTESTS=ON;-Dprecice_DIR=$precice_DIR" \
-          -D GISMO_OPTIONAL="gsElasticity\\;${{ github.event.repository.name }}" -Q
+          -D GISMO_OPTIONAL="gsElasticity\\;${{ github.repository }}"

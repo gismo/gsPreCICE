@@ -93,17 +93,26 @@ public:
     virtual short_t targetDim() const
     { return m_data.rows(); }
 
-    /// See \a gsFunction
+    /** \brief Evaluate the function at points \a u into \a result.
+     * This function evaluates a target function at a given set of input points and 
+     * stores the results in the provided output matrix. The mapping between input 
+     * points and corresponding results is defined by the internal mapping table \c m_map. 
+     * The function ensures that all input points are valid and registered in the table 
+     * before performing the evaluation.
+     * 
+     * \param[in] u A \c gsMatrix , where each column represents a point in the parameter domain.
+     * \param[out] result A \c gsMatrix , where each column will contain the result of 
+     * evaluating the function at the corresponding input point.
+     *
+     */
     virtual void eval_into(const gsMatrix<T>& u, gsMatrix<T>& result) const
     {
         index_t col;
-        gsDebugVar(u);
         result.resize(this->targetDim(),u.cols());
         result.setZero();
-
         for (index_t k = 0; k!= u.cols(); k++)
         {
-            // gsDebugVar(u.col(k));
+
             GISMO_ASSERT(m_map.find(u.col(k))!=m_map.end(),"Coordinate " + std::to_string(k) + " not registered in the table");
             col = m_map.at(u.col(k));
             result.col(k) = m_data.col(col);
@@ -141,14 +150,6 @@ public:
         GISMO_ASSERT(m_points.cols()==m_data.cols(),"Points and data must have the same number of columns");
         for (index_t k = 0; k != m_points.cols(); k++)
             m_map.insert({m_points.col(k),k}); // m_map.at(vector) returns the column index of vector
-            gsInfo << "Content of m_map:\n";
-        for (const auto& [key, value] : m_map) {
-            gsInfo << "Key: ";
-            for (int i = 0; i < key.size(); ++i) {
-                gsInfo << key[i] << " ";
-            }
-            gsInfo << "=> Value: " << value << "\n";
-        }
     }
 
     /// See \a gsFunction

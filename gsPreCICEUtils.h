@@ -56,7 +56,7 @@ gsVector<T> knotsToVector(const gsBasis<T> & basis)
             GISMO_ERROR("Basis type not understood");
             break;
     }
-    gsDebugVar(tensorKnots[0]);
+
     std::vector<size_t> sizes(DIM);
     sizes[0] = tensorKnots[0].size();
 
@@ -172,17 +172,18 @@ gsMatrix<T> knotVectorUnpack(const gsMatrix<T> & knots, index_t numBoundaries)
 // }
 
 /**
- * @brief      Pack the knot and ratio matrices of a gsMultiPatch object into a single matrix.
+ * @brief      Pack the knot and control points matrices of a gsMultiPatch object into a single matrix.
  *
- * @param[in]  mp  The gsMultiPatch object
+ * @param[in]  mp  The gsMultiPatch object. MultiPatch geometry object.
  *
- * @tparam     T   { description }
+ * @tparam     T   Real type.
  *
  * @return     A tuple containing the packed knot matrix, the packed ratio matrix, the number of columns in each patch's knot matrix, and the number of columns in each patch's ratio matrix.
  */
 
 template <class T>
-std::tuple<gsMatrix<T>, gsMatrix<T>, std::vector<index_t>, std::vector<index_t>> packMultiPatch(const gsMultiPatch<T> &mp) {
+std::tuple<gsMatrix<T>, gsMatrix<T>, std::vector<index_t>, std::vector<index_t>> packMultiPatch(const gsMultiPatch<T> &mp) 
+{
     std::vector<gsMatrix<T>> knotMatrices;
     knotMatrices.reserve(mp.nPatches());
     std::vector<gsMatrix<T>> coefMatrices;
@@ -242,7 +243,7 @@ std::tuple<gsMatrix<T>, gsMatrix<T>, std::vector<index_t>, std::vector<index_t>>
  * @param[in]  knotMatrices  The knot matrices
  * @param[in]  coefMatrices  The ratio matrices
  *
- * @tparam     T             { description }
+ * @tparam     T             Reak type.
  *
  * @return     A gsMultiPatch object.
  */
@@ -339,10 +340,9 @@ typename gsBasis<T>::Ptr knotMatrixToBasis(const gsMatrix<T> & knots)
         std::copy_if(knots.row(d).begin(),knots.row(d).end(),
                      std::back_inserter(tmp),
                      [](T a){return !math::isnan(a);});
-        // KVs[d] = gsKnotVector<T>(tmp);/////// MEMLEAK
-        KVs[d] = std::move(gsKnotVector<T>(tmp));
-        gsDebugVar(d);
-        gsDebugVar(KVs[d]);
+        KVs[d] = give(gsKnotVector<T>(tmp));
+
+
         gsDebug<<"(gsPreCICEUtils.h: There is a memory leak in the line above)\n";
     }
 

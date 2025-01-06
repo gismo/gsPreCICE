@@ -1,15 +1,17 @@
+![GitHub commits since latest release](https://img.shields.io/github/commits-since/gismo/gsKLShell/latest?color=008A00)
+![GitHub commit activity](https://img.shields.io/github/commit-activity/m/gismo/gsKLShell?color=008A00)
+
 # gsPreCICE
- module enabling partitioned multiphysics simulations for G+Smo with other libraries coupled via [`preCICE`](https://precice.org).
+
+Module enabling partitioned multiphysics simulations for G+Smo with other libraries coupled via [`preCICE`](https://precice.org).
 
 |CMake flags|```-DGISMO_OPTIONAL="<other submodules>;gsPreCICE"```|
 |--:|---|
-|License|[MPL 2.0](https://www.mozilla.org/en-US/MPL/2.0/)|
-|OS support|Linux, macOS|
+|License|![GitHub License](https://img.shields.io/github/license/gismo/gismo?color=008A00)|
+|OS support|Linux, Windows, macOS|
 |Build status|[![ci](https://github.com/gismo/gsPreCICE/actions/workflows/ci.yml/badge.svg)](https://github.com/gismo/gsPreCICE/actions/workflows/ci.yml)|
-|Repository|[gismo/gismo/gsPreCICE](https://github.com/gismo/gsPreCICE)|
-|Developer|[Hugo Verhelst](https://github.com/hverhelst), [Jingya Li](https://github.com/Crazy-Rich-Meghan) |
+|Developers/maintainers| [![Static Badge](https://img.shields.io/badge/@Crazy--Rich--Meghan-008A00)](https://github.com/Crazy-Rich-Meghan) [![Static Badge](https://img.shields.io/badge/@hverhelst-008A00)](https://github.com/hverhelst)|
 |Dependency|[preCICE v.3](https://github.com/gismo/gsPreCICE)|
-|Maintainer|[Jingya Li](https://github.com/Crazy-Rich-Meghan), [Hugo Verhelst](https://github.com/hverhelst)|
 
 ## Start here
 

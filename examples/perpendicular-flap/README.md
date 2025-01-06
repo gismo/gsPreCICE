@@ -25,15 +25,9 @@ In the G+Smo build folder, build the tutorial file.
 
 ```
 make <participant file> -j <#threads>
+make install <participant file> 
 ```
 
-Go to the gismo-executable folder and link the compiled executable to the gismo_executable.
-
-```bash
-cd gismo-executable
-chmod +x create_symlink.sh
-./create_symlink.sh
-```
 
 You can find the corresponding `run.sh` script for running the case in the folders corresponding to the participant you want to use:
 

@@ -1,4 +1,4 @@
 #!/bin/bash
 set -e -u
 
-../gismo-executable/gismo-executable-dirichlet -c ../precice-config.xml 
+partitioned-heat-conduction-IGA-Dirichlet -c ../precice-config.xml 

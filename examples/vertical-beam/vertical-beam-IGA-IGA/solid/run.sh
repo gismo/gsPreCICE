@@ -1,4 +1,4 @@
 #!/bin/bash
 set -e -u
 
-../gismo-executable/gismo-executable-dirichlet -c ../precice-config.xml 
+vertical-beam-IGA-IGA-solid -c ../precice-config.xml 

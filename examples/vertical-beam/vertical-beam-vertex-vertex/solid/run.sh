@@ -1,4 +1,4 @@
 #!/bin/bash
 set -e -u
 
-../gismo-executable/gismo-executable -c ../precice-config.xml --plot -s 0
+vertical-beam-vertex-vertex-solid -c ../precice-config.xml --plot 

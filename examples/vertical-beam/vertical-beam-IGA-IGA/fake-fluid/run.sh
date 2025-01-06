@@ -1,4 +1,4 @@
 #!/bin/bash
 set -e -u
 
-../gismo-executable/gismo-executable-neumann -c ../precice-config.xml  
+vertical-beam-IGA-IGA-fake-fluid -c ../precice-config.xml  

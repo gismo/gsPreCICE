@@ -1,3 +1,4 @@
+
 name: ci
 
 on:
@@ -48,8 +49,6 @@ jobs:
           make -j 10
           sudo make install
           precice_DIR=$(pwd)
-          export precice_DIR=$(pwd)
-
       # Step to install preCICE
       - name: Install preCICE for mac
         if: runner.os == 'macOS'
@@ -63,8 +62,6 @@ jobs:
           make -j 10
           sudo make install
           precice_DIR=$(pwd)
-          export precice_DIR=$(pwd)
-
       - name: "Run for ${{ matrix.os }}"
         shell: bash
         working-directory: ${{ runner.workspace }}

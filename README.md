@@ -11,7 +11,8 @@ Module enabling partitioned multiphysics simulations for G+Smo with other librar
 |OS support|Linux, Windows, macOS|
 |Build status|[![ci](https://github.com/gismo/gsPreCICE/actions/workflows/ci.yml/badge.svg)](https://github.com/gismo/gsPreCICE/actions/workflows/ci.yml)|
 |Developers/maintainers| [![Static Badge](https://img.shields.io/badge/@Crazy--Rich--Meghan-008A00)](https://github.com/Crazy-Rich-Meghan) [![Static Badge](https://img.shields.io/badge/@hverhelst-008A00)](https://github.com/hverhelst)|
-|Dependency|[preCICE v.3](https://github.com/gismo/gsPreCICE)|
+|Dependency|[preCICE v.3](https://github.com/gismo/gsPreCICE),|
+
 
 ## Start here
 
@@ -28,16 +29,13 @@ cd build
 cmake .. -DGISMO_OPTIONAL="<Other submodules>;gsPreCICE"
 ```
 
-4. Build examples.
+4. Build examples and make the examples discoverable in the system.
 ```
 make <tutorial file name> -j <number_of_threads>
+make install <tutorial file name>
+
 ```
-5. Link the compiled executable to the gismo-executable folder within the tutorial directory.*
-```
-cd <Your preCICE tutorial folder>/partitioned-heat-conduction/gismo-executable
-ln -sf <You G+Smo build folder>/bin/<executable name> ./gismo_executable`
-```
-6. Open two terminals and run.
+5. Open two terminals and run.
 ```
  cd solid-gismo
  ./run.sh
@@ -49,14 +47,17 @@ cd fluid-<other solvers>
 ```
 
 
-**Note**: You need to perform steps 2 and 5 if you want to run the simulation with other libraries.
-
 ## Examples
 - [Partitioned Heat Conduction](examples/partitioned-heat-conduction/README.md)
+- [Perpendicular Flap](https://github.com/gismo/gsPreCICE/tree/main/examples/perpendicular-flap/README.md)
+  **Note:** To run these two examples, `gsElasticity`, `gsKLShell` and `gsStructural Analysis` are also needed.
+  ```
+  cmake .. -DGISMO_OPTIONAL="gsKLShell;gsPreCICE;gsElasticity;gsStructuralAnalysis"
+  ```
 
 ## Versions
 
-The latest supported G+Smo version is v24.08.0, and the latest supported preCICE version is v3.1.2.
+The submodule is up to date with the recent G+Smo release , and the latest supported preCICE version is v3.1.2.
 
 ## References
 

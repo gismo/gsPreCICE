@@ -51,7 +51,7 @@ cd fluid-<other solvers>
 - [Partitioned Heat Conduction](examples/partitioned-heat-conduction/README.md)
 - [Perpendicular Flap](https://github.com/gismo/gsPreCICE/tree/main/examples/perpendicular-flap/README.md)
   
-  **Note:** To run these two examples, `gsElasticity`, `gsKLShell` and `gsStructural Analysis` are also needed.
+  **Note:** To run these two examples, `gsElasticity`, `gsKLShell` and `gsStructuralAnalysis` are also needed.
   ```
   cmake .. -DGISMO_OPTIONAL="gsKLShell;gsPreCICE;gsElasticity;gsStructuralAnalysis"
   ```

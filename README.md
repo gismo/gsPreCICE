@@ -11,7 +11,7 @@ Module enabling partitioned multiphysics simulations for G+Smo with other librar
 |OS support|Linux, Windows, macOS|
 |Build status|[![ci](https://github.com/gismo/gsPreCICE/actions/workflows/ci.yml/badge.svg)](https://github.com/gismo/gsPreCICE/actions/workflows/ci.yml)|
 |Developers/maintainers| [![Static Badge](https://img.shields.io/badge/@Crazy--Rich--Meghan-008A00)](https://github.com/Crazy-Rich-Meghan) [![Static Badge](https://img.shields.io/badge/@hverhelst-008A00)](https://github.com/hverhelst)|
-|Dependency|[preCICE v.3](https://github.com/gismo/gsPreCICE),|
+|Dependency|[preCICE v.3](https://github.com/gismo/gsPreCICE)|
 
 
 ## Start here

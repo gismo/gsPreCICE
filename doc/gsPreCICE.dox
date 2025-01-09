@@ -1,0 +1,33 @@
+/*
+    This file is part of the G+Smo library.
+
+    This Source Code Form is subject to the terms of the Mozilla Public
+    License, v. 2.0. If a copy of the MPL was not distributed with this
+    file, You can obtain one at http://mozilla.org/MPL/2.0/.
+*/
+
+namespace gismo
+{
+
+/** \defgroup gsPreCICE preCICE interface
+\ingroup Modules
+
+The \ref gsPreCICE module provides an interface to the <a href="https://precice.org">preCICE</a> library. The gsPreCICE module can be used to couple \gismo to any other preCICe-compatible solver for multi-physics problems.
+
+The gsPreCICE module implements the following classes:
+- <b>\ref gsPreCICE</b>: class to declare the preCICE setup, e.g., to declare mesh points, data objects and to advance the time steps marched by preCICE
+- <b>\ref gsPreCICEFunction</b>: a class derived from a \ref gsFunction, intiated using \ref gsPreCICE. It calls preCICE upon every call of \ref eval_into
+- <b>\ref gsLookupFunction</b>: a class derived from a \ref gsFunction initiated using a matrix of parametric points and a matrix of values. This can be filled using the data from \ref gsPreCICE.
+
+In addition, the module provides several utilities to make data exchange between \gismo and other solvers more easy:
+- <b>\ref knotsToMatrix</b> and <b>\ref knotsToVector</b> : Converts a set of knot vectors to a plain matrix, to be sent to preCICE
+- <b>\ref knotMatrixToBasis</b>: Converts a knotMatrix from preCICE to a tensor basis
+- <b>\ref packMultiPatch</b>: Packs a \ref gsMultiPatch into a data structure that can be sent via preCICE
+- <b>\ref unpackMultiPatch</b>: Unpacks a a multi-patch data structure from preCICE to a \ref gsMultiPatch
+
+
+For more information about the preCICE interface, we refer to the module's <a href="https://github.com/gismo/gsPreCICE/blob/main/README.md">the README file</a>.
+
+*/
+
+}

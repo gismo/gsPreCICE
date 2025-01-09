@@ -1,6 +1,6 @@
-/** @file gsPreCICE.h
+/** @file gsPreCICEUtils.h
 
-    @brief Header file for using gsPreCICE extension
+    @brief Utilities file for using gsPreCICE extension
 
     This file is part of the G+Smo library.
 
@@ -18,6 +18,16 @@
 
 namespace gismo {
 
+/**
+ * @brief      Gets a vector of knot vectors from a basis
+ *
+ * @param[in]  source      The source basis
+ * @param      tensorKnots  The knots in a vector
+ *
+ * @tparam     DIM         Dimension
+ * @tparam     T           Real type
+ * @tparam     basis_type  Basis type
+ */
 template <short_t DIM, class T, template<short_t _DIM, class _T> class basis_type>
 inline void getKnots(const gsBasis<T> & source, std::vector<gsKnotVector<T>> & tensorKnots)
 {
@@ -27,7 +37,7 @@ inline void getKnots(const gsBasis<T> & source, std::vector<gsKnotVector<T>> & t
 }
 
 /**
- * @brief      { function_description }
+ * @brief      Puts all the knots in a vector (for 1D bases only)
  *
  *  Make a matrix with the knot vectors
  *  [[x1_1, x1_2, ..., nan , nan ,..., nan , nan , ...]
@@ -36,9 +46,9 @@ inline void getKnots(const gsBasis<T> & source, std::vector<gsKnotVector<T>> & t
  *
  * @param[in]  basis  The basis
  *
- * @tparam     T      { description }
+ * @tparam     T      Real type
  *
- * @return     { description_of_the_return_value }
+ * @note @hverhelst, @Crazy-Rich-Meghan is this needed?
  */
 
 template<class T>
@@ -67,6 +77,17 @@ gsVector<T> knotsToVector(const gsBasis<T> & basis)
     return knots;
 }
 
+/** @brief      Puts all the knots in a matrix (for n-D bases)
+ *
+ *  Make a matrix with the knot vectors
+ *  [[x1_1, x1_2, ..., nan , nan ,..., nan , nan , ...]
+ *   [nan , nan , ..., x2_1, x2_2,..., nan , nan , ...]
+ *   [nan , nan , ..., nan , nan ,..., x2_1, x2_2, ...]]
+ *
+ * @param[in]  basis  The basis
+ *
+ * @tparam     T      Real type
+ */
 template<class T>
 gsMatrix<T> knotsToMatrix(const gsBasis<T> & basis)
 {
@@ -108,6 +129,9 @@ gsMatrix<T> knotsToMatrix(const gsBasis<T> & basis)
     return knots;
 }
 
+/**
+ * @todo @hverhelst, @Crazy-Rich-Meghan
+ */
 template<class T>
 gsMatrix<T> knotVectorUnpack(const gsMatrix<T> & knots, index_t numBoundaries)
 {
@@ -182,7 +206,7 @@ gsMatrix<T> knotVectorUnpack(const gsMatrix<T> & knots, index_t numBoundaries)
  */
 
 template <class T>
-std::tuple<gsMatrix<T>, gsMatrix<T>, std::vector<index_t>, std::vector<index_t>> packMultiPatch(const gsMultiPatch<T> &mp) 
+std::tuple<gsMatrix<T>, gsMatrix<T>, std::vector<index_t>, std::vector<index_t>> packMultiPatch(const gsMultiPatch<T> &mp)
 {
     std::vector<gsMatrix<T>> knotMatrices;
     knotMatrices.reserve(mp.nPatches());
@@ -238,7 +262,7 @@ std::tuple<gsMatrix<T>, gsMatrix<T>, std::vector<index_t>, std::vector<index_t>>
 
 
 /**
- * @brief      Convert the packed matrices into back into a gsMultiPatch<T> object. 
+ * @brief      Convert the packed matrices into back into a gsMultiPatch<T> object.
  *
  * @param[in]  knotMatrices  The knot matrices
  * @param[in]  coefMatrices  The ratio matrices
@@ -261,7 +285,7 @@ gsMultiPatch<T> unpackMultiPatch(const gsMatrix<T> &knotMatrix, const gsMatrix<T
 
         // Create the gsBasis object from the knot matrix
         std::shared_ptr<gsBasis<T>> KnotBasis = knotMatrixToBasis(km);
-        
+
         // Create the gsGeometry object
         auto geom = KnotBasis->makeGeometry(cm);
 
@@ -306,11 +330,11 @@ gsMatrix<T> unPackControlPoints(const gsMatrix<T> & controlPoints, const gsMatri
 
 
     // Simplified copying of control points (just a placeholder)
-    for (index_t i = 0; i < controlPoints.rows(); ++i) 
+    for (index_t i = 0; i < controlPoints.rows(); ++i)
     {
         index_t diff = counter - cp_index;
         index_t startIndex = cp_index - diff + 1;  // Calculate the start index
-        for (size_t j = 0; j < diff; ++j) 
+        for (size_t j = 0; j < diff; ++j)
         {
             unpackedCps(i,j) = controlPoints(i,j + startIndex);
         }
@@ -318,11 +342,11 @@ gsMatrix<T> unPackControlPoints(const gsMatrix<T> & controlPoints, const gsMatri
     return unpackedCps;
 }
 
-/** 
+/**
  * @brief      Convert a matrix of knot vectors into a gsBasis object.
- * 
+ *
  * @param[in]  knots  The matrix of knot vectors
- * 
+ *
  * @return     A shared pointer to the gsBasis object.
  */
 

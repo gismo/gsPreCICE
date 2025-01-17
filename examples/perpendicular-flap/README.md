@@ -24,7 +24,7 @@ To run the tutorial you need to install the following components:
 In the G+Smo build folder, build the tutorial file.
 
 ```
-make <participant file> -j <#threads>
+make <participant file> -j <#threads> // In this case: make perpendicular-flap-vertex-gismo -j <#threads>
 make install <participant file> 
 ```
 

@@ -47,7 +47,7 @@ cd solid-gismo
 
 ## Post-processing
 The results of this tutorial are comparable to the simulation results communicated with force under the perpendicular-flap tutorials.
-![G+Smo stress](https://github.com/Crazy-Rich-Meghan/tutorials/blob/perpendicular-flap-gismo-elasticity-stress/perpendicular-flap-stress/images/tutorials-perpendicular-flap-displacement-openfoam-gismo-elasticity.png)
+![G+Smo stress](https://github.com/Crazy-Rich-Meghan/tutorials/blob/perpendicular-flap-gismo-elasticity-stress/perpendicular-flap-stress/images/tutorials-perpendicular-flap-stress-displacement-watchpoint.png)
 
-Additionally, the mesh convergence study data is available under the `images/data` directory. A sample plot illustrating the convergence of x-displacement over time is shown below:
-![G+Smo converfence](https://github.com/Crazy-Rich-Meghan/tutorials/blob/perpendicular-flap-gismo-elasticity-stress/perpendicular-flap-stress/images/x_displacement_vs_time.png)
+<!-- Additionally, the mesh convergence study data is available under the `images/data` directory. A sample plot illustrating the convergence of x-displacement over time is shown below:
+![G+Smo converfence](https://github.com/Crazy-Rich-Meghan/tutorials/blob/perpendicular-flap-gismo-elasticity-stress/perpendicular-flap-stress/images/x_displacement_vs_time.png) -->

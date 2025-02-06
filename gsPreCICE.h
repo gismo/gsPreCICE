@@ -300,32 +300,32 @@ public:
      * @param[in]  coords   The coordinates of the points
      * @param      IDs      The IDs of the points
      */
-void getMeshVertexIDsFromPositions(const std::string & meshName, const gsMatrix<T> & coords, gsVector<index_t> & IDs) const
-{
-    GISMO_ASSERT(coords.rows()==m_meshDims.at(meshName),"Dimension of the points ("<<coords.rows()<<") is not equal to the dimension of mesh "<<meshName<<"("<<m_meshDims.at(meshName)<<")\n");
-    IDs.resize(coords.cols());
-    const std::map<gsVector<T>,index_t,mapCompare> & map = m_maps.at(this->getMeshID(meshName));
-    T tolerance = 1e-6; // Define a tolerance for coordinate comparison
-
-    for (index_t k=0; k!=coords.cols(); k++)
-#ifdef  NDEBUG
-        IDs.at(k) = map.at(coords.col(k));
-#else
+    void getMeshVertexIDsFromPositions(const std::string & meshName, const gsMatrix<T> & coords, gsVector<index_t> & IDs) const
     {
-        bool found = false;
-        for (const auto& entry : map)
+        GISMO_ASSERT(coords.rows()==m_meshDims.at(meshName),"Dimension of the points ("<<coords.rows()<<") is not equal to the dimension of mesh "<<meshName<<"("<<m_meshDims.at(meshName)<<")\n");
+        IDs.resize(coords.cols());
+        const std::map<gsVector<T>,index_t,mapCompare> & map = m_maps.at(this->getMeshID(meshName));
+        T tolerance = 1e-6; // Define a tolerance for coordinate comparison
+
+        for (index_t k=0; k!=coords.cols(); k++)
+    #ifdef  NDEBUG
+            IDs.at(k) = map.at(coords.col(k));
+    #else
         {
-            if ((entry.first - coords.col(k)).norm() < tolerance)
+            bool found = false;
+            for (const auto& entry : map)
             {
-                IDs.at(k) = entry.second;
-                found = true;
-                break;
+                if ((entry.first - coords.col(k)).norm() < tolerance)
+                {
+                    IDs.at(k) = entry.second;
+                    found = true;
+                    break;
+                }
             }
+            GISMO_ASSERT(found, "Coordinate " << coords.col(k).transpose() << " is not registered in the vertex ID map of mesh " << meshName << ".\nThis error could be because you registered points in the parametric domain for the mesh, but you try to read (i.e. evaluate) points defined in the physical domain or vice versa.");
         }
-        GISMO_ASSERT(found, "Coordinate " << coords.col(k).transpose() << " is not registered in the vertex ID map of mesh " << meshName << ".\nThis error could be because you registered points in the parametric domain for the mesh, but you try to read (i.e. evaluate) points defined in the physical domain or vice versa.");
+    #endif
     }
-#endif
-}
 
     /**
      * @brief      Sets the mesh access region.

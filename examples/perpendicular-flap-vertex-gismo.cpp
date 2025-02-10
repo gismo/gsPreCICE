@@ -16,7 +16,7 @@
 #include <gsPreCICE/gsPreCICE.h>
 #include <gsPreCICE/gsPreCICEUtils.h>
 #include <gsPreCICE/gsPreCICEFunction.h>
-// #include <gsPreCICE/gsPreCICEVectorFunction.h>
+#include <gsPreCICE/gsLookupFunction.h>
 
 #include <gsElasticity/gsMassAssembler.h>
 #include <gsElasticity/gsElasticityAssembler.h>
@@ -58,7 +58,20 @@ int main(int argc, char *argv[])
 
     // Generate domain
     gsMultiPatch<> patches;
-    patches.addPatch(gsNurbsCreator<>::BSplineRectangle(-0.05,0.0,0.05,1.0));
+    // get from XML
+
+    gsKnotVector<> KV1 (0,1,2,2) ;
+    gsKnotVector<> KV2 (0,1,24,2) ;
+
+    gsTensorBSplineBasis<2> basis(KV1,KV2);
+    gsMatrix<> coefs = basis.anchors();
+    coefs.transposeInPlace();
+    coefs.col(0).array() *= 0.1;
+    coefs.col(0).array() -= 0.05;
+
+
+    patches.addPatch(basis.makeGeometry(give(coefs)));
+    gsDebugVar(patches.patch(0));
 
     // Create bases
     gsMultiBasis<> bases(patches);//true: poly-splines (not NURBS)
@@ -73,10 +86,12 @@ int main(int argc, char *argv[])
 
     gsInfo << "Patches: "<< patches.nPatches() <<", degree: "<< bases.minCwiseDegree() <<"\n";
 
+    // get from XML
     real_t rho = 3000;
-    real_t E = 4e6;
+    real_t E = 4000000;
     real_t nu = 0.3;
 
+    // get from XML ??
     // Set the interface for the precice coupling
     std::vector<patchSide> couplingInterfaces(3);
     couplingInterfaces[0] = patchSide(0,boundary::east);
@@ -88,6 +103,7 @@ int main(int argc, char *argv[])
      *
      *
      */
+    // get from XML
     std::string participantName = "Solid";
     gsPreCICE<real_t> participant(participantName, precice_config);
 
@@ -130,12 +146,17 @@ int main(int argc, char *argv[])
     gsConstantFunction<> g_D(0,patches.geoDim());
     // Coupling side
     // gsFunctionExpr<> g_C("1","0",patches.geoDim());
-    gsPreCICEFunction<real_t> g_C(&participant,SolidMesh,StressData,patches,patches.geoDim(),false);
+
+    // get from XML ???
+    gsMatrix<> quad_stress(2,quad_xy.cols());
+    gsLookupFunction<real_t> g_L(quad_xy,quad_stress);
+    gsDebugVar(quad_uv.cols());
+    // gsPreCICEFunction<real_t> g_C(&participant,SolidMesh,StressData,patches,patches.geoDim(),false);
     // Add all BCs
     // Coupling interface
-    bcInfo.addCondition(0, boundary::north,  condition_type::neumann , &g_C,-1,true);
-    bcInfo.addCondition(0, boundary::east,  condition_type::neumann  , &g_C,-1,true);
-    bcInfo.addCondition(0, boundary::west,  condition_type::neumann  , &g_C,-1,true);
+    bcInfo.addCondition(0, boundary::north,  condition_type::neumann , &g_L,-1,true);
+    bcInfo.addCondition(0, boundary::east,  condition_type::neumann  , &g_L,-1,true);
+    bcInfo.addCondition(0, boundary::west,  condition_type::neumann  , &g_L,-1,true);
     // Bottom side (prescribed temp)
     bcInfo.addCondition(0, boundary::south, condition_type::dirichlet, &g_D, 0);
     bcInfo.addCondition(0, boundary::south, condition_type::dirichlet, &g_D, 1);
@@ -176,10 +197,8 @@ int main(int argc, char *argv[])
 
     std::vector<gsMatrix<> > fixedDofs = assembler.allFixedDofs();
     // Assemble the RHS
-    gsVector<> F = assembler.rhs();
-    gsVector<> F_checkpoint, U_checkpoint, V_checkpoint, A_checkpoint, U, V, A;
+    gsVector<> U_checkpoint, V_checkpoint, A_checkpoint, U, V, A;
 
-    F_checkpoint = F;
     U_checkpoint = U = gsVector<real_t>::Zero(assembler.numDofs(),1);
     V_checkpoint = V = gsVector<real_t>::Zero(assembler.numDofs(),1);
     A_checkpoint = A = gsVector<real_t>::Zero(assembler.numDofs(),1);
@@ -206,10 +225,26 @@ int main(int argc, char *argv[])
         return true;
     };
 
+    // Function for the Residual
+    gsStructuralAnalysisOps<real_t>::TForce_t TForce = [&assembler](real_t, gsVector<real_t> & result)
+    {
+        assembler.assemble();
+        result = assembler.rhs();
+        return true;
+    };
+
 
     gsSparseMatrix<> C = gsSparseMatrix<>(assembler.numDofs(),assembler.numDofs());
     gsStructuralAnalysisOps<real_t>::Damping_t Damping = [&C](const gsVector<real_t> &, gsSparseMatrix<real_t> & m) { m = C; return true; };
     gsStructuralAnalysisOps<real_t>::Mass_t    Mass    = [&M](                          gsSparseMatrix<real_t> & m) { m = M; return true; };
+    gsStructuralAnalysisOps<real_t>::Stiffness_t Stiffness = [&K](                      gsSparseMatrix<real_t> & m) { m = K; return true; };
+
+    if (nonlinear)
+        timeIntegrator = new gsDynamicNewmark<real_t,true>(Mass,Damping,Jacobian,Residual);
+    else
+        timeIntegrator = new gsDynamicNewmark<real_t,false>(Mass,Damping,Stiffness,TForce);
+
+
 
     gsDynamicBase<real_t> * timeIntegrator;
     if (method==1)
@@ -217,7 +252,8 @@ int main(int argc, char *argv[])
     else if (method==2)
         timeIntegrator = new gsDynamicImplicitEuler<real_t,true>(Mass,Damping,Jacobian,Residual);
     else if (method==3)
-        timeIntegrator = new gsDynamicNewmark<real_t,true>(Mass,Damping,Jacobian,Residual);
+        // timeIntegrator = new gsDynamicNewmark<real_t,true>(Mass,Damping,Jacobian,Residual);
+        timeIntegrator = new gsDynamicNewmark<real_t,false>(Mass,Damping,Stiffness,TForce);
     else if (method==4)
         timeIntegrator = new gsDynamicBathe<real_t,true>(Mass,Damping,Jacobian,Residual);
     else if (method==5)
@@ -231,7 +267,7 @@ int main(int argc, char *argv[])
         GISMO_ERROR("Method "<<method<<" not known");
 
     timeIntegrator->options().setReal("DT",dt);
-    timeIntegrator->options().setReal("TolU",1e-3);
+    timeIntegrator->options().setReal("TolU",1e-6);
     timeIntegrator->options().setSwitch("Verbose",true);
 
     real_t time = 0;
@@ -276,9 +312,8 @@ int main(int argc, char *argv[])
             timestep_checkpoint = timestep;
         }
 
-        assembler.assemble();
-        F = assembler.rhs();
-
+        participant.readData(SolidMesh,StressData,quad_xyIDs,quad_stress);
+        // g_L.update();
         // solve gismo timestep
         gsInfo << "Solving timestep " << time << "...\n";
         timeIntegrator->step(time,dt,U,V,A);

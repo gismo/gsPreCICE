@@ -15,8 +15,9 @@
 
 #include <gismo.h>
 #include <gsPreCICE/gsPreCICE.h>
-#include <gsPreCICE/gsPreCICEFunction.h>
 #include <gsPreCICE/gsPreCICEUtils.h>
+#include <gsPreCICE/gsPreCICEFunction.h>
+#include <gsPreCICE/gsLookupFunction.h>
 
 using namespace gismo;
 
@@ -25,9 +26,10 @@ int main(int argc, char *argv[])
     //! [Parse command line]
     bool plot = true;
     index_t plotmod = 1;
-    index_t numRefine  = 2;
+    index_t numRefine  = 0;
     index_t numElevate = 0;
-    short_t side = 0;
+
+    bool get_writeTime = false;
     real_t alpha = 3;
     real_t beta  = 1.2;
     real_t time  = 0;
@@ -41,7 +43,10 @@ int main(int argc, char *argv[])
     // cmd.addInt("l","loadCase", "Load case: 0=constant load, 1='spring' load", loadCase);
     cmd.addInt("m","plotmod", "Modulo for plotting, i.e. if plotmod==1, plots every timestep", plotmod);
     //cmd.addSwitch("readTime", "Get the read time", get_readTime);
-    //cmd.addSwitch("writeTime", "Get the write time", get_writeTime);
+    //cmd.addSwitch("writeTime", "Get the write time", get_writeTime);   
+    cmd.addSwitch("writeTime", "Get the write time", get_writeTime);
+    cmd.addInt( "r", "refine", "Number of uniform refinement applications",numRefine);
+    cmd.addInt( "e", "elevate", "Number of degree elevation steps to perform before solving (0: equalize degree in all directions)",numElevate);
     try { cmd.getValues(argc,argv); } catch (int rv) { return rv; }
   
     //! [Read input file]
@@ -85,10 +90,11 @@ int main(int argc, char *argv[])
     patches.addPatch(gsNurbsCreator<>::BSplineRectangle(0.0,0.0,1.0,1.0));
     for (int r =0; r < numRefine; ++r)
         patches.uniformRefine();
+    for (int e=0; e<numElevate; ++e)
+        patches.degreeElevate();
 
     gsMultiBasis<> basesDirichlet(patches);
     // ----------------------------------------------------------------------------------------------
-
 
 
     /// Create from patches and boundary/interface information
@@ -119,7 +125,7 @@ int main(int argc, char *argv[])
     // ----------------------------------------------------------------------------------------------
 
     std::vector<patchSide> couplingInterface(1);
-    couplingInterface[0] = patchSide(0,boundary::north);
+    couplingInterface[0] = patchSide(0,boundary::east);
     std::vector<gsGeometry<>::uPtr> boundaries(couplingInterface.size());
 
 
@@ -129,13 +135,6 @@ int main(int argc, char *argv[])
     std::vector<gsGeometry<>::uPtr> couplingBoundaries(couplingInterface.size());
 
     couplingBoundaries[0] = patches.patch(0).boundary(couplingInterface[0].side());
-
-    // for(index_t i= 0; i < couplingInterface.size();++i)
-    // {
-    //     couplingBoundaries[i] = patches.patch(0).boundary(couplingInterface[i].side()); // Add boundary coefficients to a vector
-    //     auto& basis_temp = couplingBoundaries[i]->basis(); // Assuming this returns a pointer to gsBasis
-    //     fluxBases.addBasis(&basis_temp);
-    // }
     
     // Add flux knot mesh
     gsVector<> fluxKnotMatrix = knotsToVector(couplingBoundaries[0]->basis());
@@ -150,6 +149,7 @@ int main(int argc, char *argv[])
     participant.addMesh(FluxControlPointMesh,fluxControlPoints.transpose(), fluxControlPointsIDs);
 
 
+    real_t t_write = 0;
     real_t precice_dt = participant.initialize();
 
     //Get the temperature mesh from direct-access="true"direct-access="true"the API
@@ -181,11 +181,16 @@ int main(int argc, char *argv[])
 
     // gsPreCICEFunction<real_t> g_CD(&interface,meshName,(side==0 ? tempName : fluxName),patches,1);
     gsFunction<> * g_C = &u_ex;
-    bcInfo.addCondition(0, boundary::north, condition_type::dirichlet, g_C, 0, false, 0); //For initialization, will be changed later
+    bcInfo.addCondition(0, boundary::east, condition_type::dirichlet, g_C, 0, false, 0); //For initialization, will be changed later
     bcInfo.addCondition(0, boundary::west,  condition_type::dirichlet  , &u_ex, 0, false, 0);
-    bcInfo.addCondition(0, boundary::east,  condition_type::dirichlet  , &u_ex, 0, false, 0);
+    bcInfo.addCondition(0, boundary::north,  condition_type::dirichlet  , &u_ex, 0, false, 0);
     bcInfo.addCondition(0, boundary::south,  condition_type::dirichlet  , &u_ex, 0, false, 0);
     bcInfo.setGeoMap(patches);
+
+    // gsDebugVar(patches.patch(0).boundary(boundary::north)->coefs());
+    // gsDebugVar(patches.patch(0).boundary(boundary::south)->coefs());
+    // gsDebugVar(patches.patch(0).boundary(boundary::west)->coefs());
+    // gsDebugVar(patches.patch(0).boundary(boundary::east)->coefs());
 
     // ----------------------------------------------------------------------------------------------
     typedef gsExprAssembler<>::geometryMap geometryMap;
@@ -253,11 +258,12 @@ int main(int argc, char *argv[])
         gsDebugVar(fluxData);
         // gsDebugVar(result);
         participant.writeData(FluxControlPointMesh, FluxControlPointData, fluxControlPointsIDs, fluxData);
+        if (get_writeTime)
+            t_write +=participant.writeTime();
 
     }
     participant.readData(GeometryControlPointMesh,TemperatureData,geometryControlPointIDs,tempData);
     tempMesh.patch(0).coefs()=tempData.row(0).transpose(); 
-    gsDebugVar(tempMesh.patch(0).coefs());
     g_C = &tempMesh.patch(0); //Update the boundary condition for the east coupled boundary
     A.initSystem();
 
@@ -342,10 +348,30 @@ int main(int argc, char *argv[])
         participant.writeData(FluxControlPointMesh, FluxControlPointData, fluxControlPointsIDs, fluxData);
         participant.readData(GeometryControlPointMesh,TemperatureData,geometryControlPointIDs,tempData);
         gsDebugVar(tempData);
+
         tempMesh.patch(0).coefs()=tempData.row(0).transpose(); 
-        gsDebugVar(tempData.row(0).transpose());
-        gsDebugVar(tempMesh.patch(0).coefs());
         g_C = &tempMesh.patch(0);
+
+        gsMatrix<> derived_u;
+        tempMesh.patch(0).invertPoints(tempData.row(0), derived_u, 1e-8);
+        gsDebugVar(derived_u);
+        gsMatrix<> derivatives_temp = tempMesh.patch(0).deriv(derived_u);
+
+        gsDebugVar(derivatives_temp);
+        gsDebugVar(fluxData);
+        // Calculate the flux data using the temperature derivatives
+        gsMatrix<> recalculated_fluxData(2,fluxControlPoints.transpose().cols());
+        for (index_t k = 0; k != fluxControlPoints.transpose().cols(); k++)
+        {
+            gsWarn << "Write the flux here!!!\n";
+            // Calculate the heat flux q = -k * grad(u)
+            // Use normal vector to calculate the flux in the normal direction
+            tmp2 = ev.eval(-jac(u_sol) * nv(G).normalized(), fluxControlPoints.transpose().col(k));
+            gsInfo << "Got here\n";
+            recalculated_fluxData(0, k) = tmp2.at(0);
+        }
+
+        gsDebugVar(recalculated_fluxData);
         // g_C = &tempMesh.patch(0); //Update the boundary condition for the east coupled boundary
 
         // do the coupling
@@ -381,6 +407,11 @@ int main(int argc, char *argv[])
             }
         }
     }
+    if (get_writeTime)
+    {
+        gsInfo << "Write time: " << t_write << "\n";
+    }
+
 
     if (plot)
     {

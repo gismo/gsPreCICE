@@ -42,6 +42,7 @@ int main(int argc, char *argv[])
     index_t numRefine  = 0;
     index_t numElevate = 0;
     std::string precice_config;
+    bool get_writeTime = false;
     int method = 3; // 1: Explicit Euler, 2: Implicit Euler, 3: Newmark, 4: Bathe, 5: Wilson, 6 RK4
 
     gsCmdLine cmd("Flow over heated plate for PreCICE.");
@@ -50,6 +51,7 @@ int main(int argc, char *argv[])
     cmd.addInt( "r", "uniformRefine", "Number of Uniform h-refinement loops",  numRefine );
     cmd.addString( "c", "config", "PreCICE config file", precice_config );
     cmd.addSwitch("plot", "Create a ParaView visualization file with the solution", plot);
+    cmd.addSwitch("writeTime", "Get the write time", get_writeTime);
     cmd.addInt("m","plotmod", "Modulo for plotting, i.e. if plotmod==1, plots every timestep", plotmod);
     cmd.addInt("M", "method","1: Explicit Euler, 2: Implicit Euler, 3: Newmark, 4: Bathe, 5: Wilson, 6: RK4",method);
     try { cmd.getValues(argc,argv); } catch (int rv) { return rv; }
@@ -164,7 +166,7 @@ int main(int argc, char *argv[])
     gsElasticityAssembler<real_t> assembler(patches,bases,bcInfo,g);
     assembler.options().setReal("YoungsModulus",E);
     assembler.options().setReal("PoissonsRatio",nu);
-    assembler.options().setInt("MaterialLaw",material_law::neo_hooke_ln);
+    assembler.options().setInt("MaterialLaw",material_law::saint_venant_kirchhoff);
     assembler.assemble();
 
     gsMatrix<real_t> Minv;
@@ -265,6 +267,7 @@ int main(int argc, char *argv[])
     gsMatrix<> otherDataMatrix(1,1);
 
     // Time integration loop
+    real_t t_write = 0;
     while (participant.isCouplingOngoing())
     {
         if (participant.requiresWritingCheckpoint())
@@ -301,6 +304,8 @@ int main(int argc, char *argv[])
         gsMatrix<> result(patches.geoDim(),quad_uv.cols());
         solution.patch(0).eval_into(quad_uv,result);
         participant.writeData(SolidMesh,DisplacementData,quad_xyIDs,result);
+        if (get_writeTime)
+            t_write +=participant.writeTime();
 
         // do the coupling
         precice_dt =participant.advance(dt);
@@ -333,6 +338,10 @@ int main(int argc, char *argv[])
             otherDataMatrix<<time;
             writer.add(pointDataMatrix,otherDataMatrix);
         }
+    }
+    if (get_writeTime)
+    {
+        gsInfo << "Write time for" << t_write << "\n";
     }
 
     if (plot)

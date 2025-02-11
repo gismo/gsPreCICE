@@ -109,7 +109,7 @@ int main(int argc, char* argv[])
     gsMatrix<> geometryControlPoints = patches.patch(0).coefs().transpose();
 
     std::vector<patchSide> couplingInterface(1);
-    couplingInterface[0] = patchSide(0,boundary::south);
+    couplingInterface[0] = patchSide(0,boundary::west);
     // std::vector<gsGeometry<>::uPtr> boundaries(couplingInterface.size());
 
     gsMultiBasis<> temperatureBases;
@@ -172,6 +172,7 @@ int main(int argc, char* argv[])
     // // Step 2: Regenerate the geometry
     gsMultiPatch<> fluxMesh; //Geometry object belongs to gsFunctionSet
     fluxMesh.addPatch(give(basis->makeGeometry(fluxControlPoints.transpose())));
+    fluxMesh.degreeElevate(1);
 
     gsDebugVar(fluxMesh.patch(0).coefs());
 
@@ -183,13 +184,19 @@ int main(int argc, char* argv[])
     // Setup the boundary condition for the Neumann side
     gsBoundaryConditions<> bcInfo;
     gsConstantFunction<> g_D(0,2); // Dirichlet
-    bcInfo.addCondition(0, boundary::south,  condition_type::neumann  , &fluxMesh.patch(0));
-    bcInfo.addCondition(0, boundary::east,  condition_type::dirichlet  , &u_ex);
-    bcInfo.addCondition(0, boundary::west,  condition_type::dirichlet  , &u_ex);
-    bcInfo.addCondition(0, boundary::north,  condition_type::dirichlet  , &u_ex);
+    // bcInfo.addCondition(0, boundary::west,  condition_type::neumann  , &fluxMesh.patch(0));
+    // bcInfo.addCondition(0, boundary::east,  condition_type::dirichlet  , &u_ex);
+    // bcInfo.addCondition(0, boundary::south,  condition_type::dirichlet  , &u_ex);
+    // bcInfo.addCondition(0, boundary::north,  condition_type::dirichlet  , &u_ex);
+
+    bcInfo.addCondition(0, boundary::east, condition_type::neumann, &fluxMesh.patch(0), 0, false, 0); 
+    
+    bcInfo.addCondition(0, boundary::west,  condition_type::dirichlet  , &u_ex, 0, false, 0);
+    bcInfo.addCondition(0, boundary::north,  condition_type::dirichlet  , &u_ex, 0, false, 0);
+    bcInfo.addCondition(0, boundary::south,  condition_type::dirichlet  , &u_ex, 0, false, 0);
+    bcInfo.setGeoMap(patches);
 
     bcInfo.setGeoMap(patches);
-    gsDebugVar(bcInfo);
 
     // ----------------------------------------------------------------------------------------------
 
@@ -261,6 +268,7 @@ int main(int argc, char* argv[])
         }
         gsDebugVar(results);
         participant.writeData(GeometryControlPointMesh, TemperatureData, geometryControlPointIDs, results);
+        gsDebugVar(results);
     }
     participant.readData(FluxControlPointMesh,FluxControlPointData,fluxControlPointIDs,fluxControlPoints);
     fluxMesh.patch(0).coefs() = fluxControlPoints;

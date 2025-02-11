@@ -10,7 +10,6 @@
 
     Author(s): H.M. Verhelst (TU Delft, 2019-2024), J.Li (TU Delft, 2023 - ...)
     */
-*/
 
 #pragma once
 

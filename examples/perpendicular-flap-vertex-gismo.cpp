@@ -41,6 +41,7 @@ int main(int argc, char *argv[])
     index_t numRefine  = 0;
     index_t numElevate = 0;
     std::string precice_config;
+    bool nonlinear = false;
     int method = 3; // 1: Explicit Euler, 2: Implicit Euler, 3: Newmark, 4: Bathe, 5: Wilson, 6 RK4
 
     gsCmdLine cmd("Flow over heated plate for PreCICE.");
@@ -51,6 +52,7 @@ int main(int argc, char *argv[])
     cmd.addSwitch("plot", "Create a ParaView visualization file with the solution", plot);
     cmd.addInt("m","plotmod", "Modulo for plotting, i.e. if plotmod==1, plots every timestep", plotmod);
     cmd.addInt("M", "method","1: Explicit Euler, 2: Implicit Euler, 3: Newmark, 4: Bathe, 5: Wilson, 6: RK4",method);
+    cmd.addSwitch("nonlinear", "Use nonlinear elasticity", nonlinear);
     try { cmd.getValues(argc,argv); } catch (int rv) { return rv; }
 
     //! [Read input file]
@@ -239,10 +241,10 @@ int main(int argc, char *argv[])
     gsStructuralAnalysisOps<real_t>::Mass_t    Mass    = [&M](                          gsSparseMatrix<real_t> & m) { m = M; return true; };
     gsStructuralAnalysisOps<real_t>::Stiffness_t Stiffness = [&K](                      gsSparseMatrix<real_t> & m) { m = K; return true; };
 
-    if (nonlinear)
-        timeIntegrator = new gsDynamicNewmark<real_t,true>(Mass,Damping,Jacobian,Residual);
-    else
-        timeIntegrator = new gsDynamicNewmark<real_t,false>(Mass,Damping,Stiffness,TForce);
+    // if (nonlinear)
+    //     timeIntegrator = new gsDynamicNewmark<real_t,true>(Mass,Damping,Jacobian,Residual);
+    // else
+    //     timeIntegrator = new gsDynamicNewmark<real_t,false>(Mass,Damping,Stiffness,TForce);
 
 
 
@@ -251,9 +253,10 @@ int main(int argc, char *argv[])
         timeIntegrator = new gsDynamicExplicitEuler<real_t,true>(Mass,Damping,Jacobian,Residual);
     else if (method==2)
         timeIntegrator = new gsDynamicImplicitEuler<real_t,true>(Mass,Damping,Jacobian,Residual);
-    else if (method==3)
-        // timeIntegrator = new gsDynamicNewmark<real_t,true>(Mass,Damping,Jacobian,Residual);
+    else if (method==3 && nonlinear==false)
         timeIntegrator = new gsDynamicNewmark<real_t,false>(Mass,Damping,Stiffness,TForce);
+    else if (method==3 && nonlinear==true)
+            timeIntegrator = new gsDynamicNewmark<real_t,true>(Mass,Damping,Jacobian,Residual);
     else if (method==4)
         timeIntegrator = new gsDynamicBathe<real_t,true>(Mass,Damping,Jacobian,Residual);
     else if (method==5)

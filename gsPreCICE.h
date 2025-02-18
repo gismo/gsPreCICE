@@ -305,11 +305,8 @@ public:
         GISMO_ASSERT(coords.rows()==m_meshDims.at(meshName),"Dimension of the points ("<<coords.rows()<<") is not equal to the dimension of mesh "<<meshName<<"("<<m_meshDims.at(meshName)<<")\n");
         IDs.resize(coords.cols());
         const std::map<gsVector<T>,index_t,mapCompare> & map = m_maps.at(this->getMeshID(meshName));
-<<<<<<< Updated upstream
-=======
-        T tolerance = 1e-3; // Define a tolerance for coordinate comparison
+        T tolerace = 1e-3; // Define a tolerance for coordinate comparison
 
->>>>>>> Stashed changes
         for (index_t k=0; k!=coords.cols(); k++)
 #ifdef  NDEBUG
             IDs.at(k) = map.at(coords.col(k));

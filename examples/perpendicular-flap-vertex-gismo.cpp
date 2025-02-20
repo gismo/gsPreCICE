@@ -17,6 +17,7 @@
 #include <gsPreCICE/gsPreCICEUtils.h>
 #include <gsPreCICE/gsPreCICEFunction.h>
 #include <gsPreCICE/gsLookupFunction.h>
+#include <gsPreCICE/gsLookupFunction.h>
 
 #include <gsElasticity/gsMassAssembler.h>
 #include <gsElasticity/gsElasticityAssembler.h>
@@ -92,6 +93,7 @@ int main(int argc, char *argv[])
     real_t nu = 0.3;
 
     // get from XML ??
+    // get from XML ??
     // Set the interface for the precice coupling
     std::vector<patchSide> couplingInterfaces(3);
     couplingInterfaces[0] = patchSide(0,boundary::east);
@@ -103,6 +105,7 @@ int main(int argc, char *argv[])
      *
      *
      */
+    // get from XML
     // get from XML
     std::string participantName = "Solid";
     gsPreCICE<real_t> participant(participantName, precice_config);
@@ -233,16 +236,24 @@ int main(int argc, char *argv[])
         return true;
     };
 
+    // Function for the Residual
+    gsStructuralAnalysisOps<real_t>::TForce_t TForce = [&assembler](real_t, gsVector<real_t> & result)
+    {
+        assembler.assemble();
+        result = assembler.rhs();
+        return true;
+    };
+
 
     gsSparseMatrix<> C = gsSparseMatrix<>(assembler.numDofs(),assembler.numDofs());
     gsStructuralAnalysisOps<real_t>::Damping_t Damping = [&C](const gsVector<real_t> &, gsSparseMatrix<real_t> & m) { m = C; return true; };
     gsStructuralAnalysisOps<real_t>::Mass_t    Mass    = [&M](                          gsSparseMatrix<real_t> & m) { m = M; return true; };
     gsStructuralAnalysisOps<real_t>::Stiffness_t Stiffness = [&K](                      gsSparseMatrix<real_t> & m) { m = K; return true; };
 
-    if (nonlinear)
-        timeIntegrator = new gsDynamicNewmark<real_t,true>(Mass,Damping,Jacobian,Residual);
-    else
-        timeIntegrator = new gsDynamicNewmark<real_t,false>(Mass,Damping,Stiffness,TForce);
+    // if (nonlinear)
+    //     timeIntegrator = new gsDynamicNewmark<real_t,true>(Mass,Damping,Jacobian,Residual);
+    // else
+    //     timeIntegrator = new gsDynamicNewmark<real_t,false>(Mass,Damping,Stiffness,TForce);
 
 
 
@@ -251,8 +262,9 @@ int main(int argc, char *argv[])
         timeIntegrator = new gsDynamicExplicitEuler<real_t,true>(Mass,Damping,Jacobian,Residual);
     else if (method==2)
         timeIntegrator = new gsDynamicImplicitEuler<real_t,true>(Mass,Damping,Jacobian,Residual);
-    else if (method==3)
-        // timeIntegrator = new gsDynamicNewmark<real_t,true>(Mass,Damping,Jacobian,Residual);
+    else if (method==3 && nonlinear)
+        timeIntegrator = new gsDynamicNewmark<real_t,true>(Mass,Damping,Jacobian,Residual);
+    else if (method==3 && !nonlinear)
         timeIntegrator = new gsDynamicNewmark<real_t,false>(Mass,Damping,Stiffness,TForce);
     else if (method==4)
         timeIntegrator = new gsDynamicBathe<real_t,true>(Mass,Damping,Jacobian,Residual);

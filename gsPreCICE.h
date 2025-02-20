@@ -47,6 +47,7 @@
 
 #include <gsCore/gsConfig.h>
 #include <precice/precice.hpp>
+#include <gsCore/gsMath.h>
 
 namespace gismo {
 
@@ -302,20 +303,22 @@ public:
      */
     void getMeshVertexIDsFromPositions(const std::string & meshName, const gsMatrix<T> & coords, gsVector<index_t> & IDs) const
     {
-        GISMO_ASSERT(coords.rows()==m_meshDims.at(meshName),"Dimension of the points ("<<coords.rows()<<") is not equal to the dimension of mesh "<<meshName<<"("<<m_meshDims.at(meshName)<<")\n");
+        GISMO_ASSERT(coords.rows() == m_meshDims.at(meshName), "Dimension of the points (" << coords.rows() << ") is not equal to the dimension of mesh " << meshName << " (" << m_meshDims.at(meshName) << ")\n");
         IDs.resize(coords.cols());
-        const std::map<gsVector<T>,index_t,mapCompare> & map = m_maps.at(this->getMeshID(meshName));
-        for (index_t k=0; k!=coords.cols(); k++)
-#ifdef  NDEBUG
-            IDs.at(k) = map.at(coords.col(k));
-#else
+        const std::map<gsVector<T>, index_t, mapCompare> & map = m_maps.at(this->getMeshID(meshName));
+        const T tolerance = 100 * math::numeric_limits<T>::digits10(); // Adjusted tolerance for coordinate comparison
+    
+        for (index_t k = 0; k != coords.cols(); ++k)
         {
-            typename std::map<gsVector<T>,index_t,mapCompare>::const_iterator it = map.find(coords.col(k));
-            GISMO_ASSERT(it!=map.end(),"Coordinate "<<coords.col(k).transpose()<<" is not registered in the vertex ID map of mesh "<<meshName<<".\nThis error could be because you registered points in the parametric domain for the mesh, but you try to read (i.e. evaluate) points defined in the physical domain or vice versa.");
-            IDs.at(k) = it->second;
+            typename std::map<gsVector<T>, index_t, mapCompare>::const_iterator it = std::find_if(map.begin(), map.end(),
+                [&](const std::pair<gsVector<T>, index_t>& entry) {
+                    return (entry.first - coords.col(k)).norm() < tolerance;
+                });
+            GISMO_ASSERT(it != map.end(), "Coordinate " << coords.col(k).transpose() << " is not registered in the vertex ID map of mesh " << meshName << ".\nThis error could be because you registered points in the parametric domain for the mesh, but you try to read (i.e. evaluate) points defined in the physical domain or vice versa.");
+            IDs[k] = it->second;
         }
-#endif
     }
+
 
     /**
      * @brief      Sets the mesh access region.

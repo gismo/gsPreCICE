@@ -15,6 +15,7 @@
 
 #include <gsCore/gsLinearAlgebra.h>
 #include <gsCore/gsGeometry.h>
+#include <gsCore/gsMath.h>
 
 namespace gismo
 {
@@ -104,8 +105,9 @@ public:
      * evaluating the function at the corresponding input point.
      *
      */
-    virtual void eval_into(const gsMatrix<T>& u, gsMatrix<T>& result) const
+    virtual void eval_into(const gsMatrix<T>& u, gsMatrix<T>& result) const override
     {
+<<<<<<< HEAD
         index_t col;
         result.resize(this->targetDim(),u.cols());
         result.setZero();
@@ -114,6 +116,23 @@ public:
             GISMO_ASSERT(m_map.find(u.col(k))!=m_map.end(),"Coordinate " + std::to_string(k) + " not registered in the table");
             col = m_map.at(u.col(k));
             result.col(k) = m_data.col(col);
+=======
+        const T tolerance = 100 * math::numeric_limits<T>::digits10(); 
+
+        result.resize(this->targetDim(), u.cols());
+        result.setZero();
+
+        for (index_t k = 0; k != u.cols(); ++k)
+        {
+            auto it = std::find_if(m_map.begin(), m_map.end(),
+                [&](const std::pair<gsVector<T>, index_t>& entry) {
+                    return (entry.first - u.col(k)).norm() <= tolerance;
+                });
+
+            GISMO_ASSERT(it != m_map.end(),
+                "Coordinate " + util::to_string(k) + " [" + util::to_string(u.col(k).transpose()) + "] not registered in the table within tolerance.");
+            result.col(k) = m_data.col(it->second);
+>>>>>>> main
         }
     }
 

@@ -17,7 +17,6 @@
 #include <gsPreCICE/gsPreCICEUtils.h>
 #include <gsPreCICE/gsPreCICEFunction.h>
 #include <gsPreCICE/gsLookupFunction.h>
-#include <gsPreCICE/gsLookupFunction.h>
 
 #include <gsElasticity/gsMassAssembler.h>
 #include <gsElasticity/gsElasticityAssembler.h>
@@ -42,6 +41,7 @@ int main(int argc, char *argv[])
     index_t numRefine  = 0;
     index_t numElevate = 0;
     std::string precice_config;
+    bool nonlinear = false;
     int method = 3; // 1: Explicit Euler, 2: Implicit Euler, 3: Newmark, 4: Bathe, 5: Wilson, 6 RK4
 
     gsCmdLine cmd("Flow over heated plate for PreCICE.");
@@ -52,6 +52,7 @@ int main(int argc, char *argv[])
     cmd.addSwitch("plot", "Create a ParaView visualization file with the solution", plot);
     cmd.addInt("m","plotmod", "Modulo for plotting, i.e. if plotmod==1, plots every timestep", plotmod);
     cmd.addInt("M", "method","1: Explicit Euler, 2: Implicit Euler, 3: Newmark, 4: Bathe, 5: Wilson, 6: RK4",method);
+    cmd.addSwitch("nonlinear", "Use nonlinear elasticity", nonlinear);
     try { cmd.getValues(argc,argv); } catch (int rv) { return rv; }
 
     //! [Read input file]
@@ -93,7 +94,6 @@ int main(int argc, char *argv[])
     real_t nu = 0.3;
 
     // get from XML ??
-    // get from XML ??
     // Set the interface for the precice coupling
     std::vector<patchSide> couplingInterfaces(3);
     couplingInterfaces[0] = patchSide(0,boundary::east);
@@ -105,7 +105,6 @@ int main(int argc, char *argv[])
      *
      *
      */
-    // get from XML
     // get from XML
     std::string participantName = "Solid";
     gsPreCICE<real_t> participant(participantName, precice_config);
@@ -236,14 +235,6 @@ int main(int argc, char *argv[])
         return true;
     };
 
-    // Function for the Residual
-    gsStructuralAnalysisOps<real_t>::TForce_t TForce = [&assembler](real_t, gsVector<real_t> & result)
-    {
-        assembler.assemble();
-        result = assembler.rhs();
-        return true;
-    };
-
 
     gsSparseMatrix<> C = gsSparseMatrix<>(assembler.numDofs(),assembler.numDofs());
     gsStructuralAnalysisOps<real_t>::Damping_t Damping = [&C](const gsVector<real_t> &, gsSparseMatrix<real_t> & m) { m = C; return true; };
@@ -262,10 +253,10 @@ int main(int argc, char *argv[])
         timeIntegrator = new gsDynamicExplicitEuler<real_t,true>(Mass,Damping,Jacobian,Residual);
     else if (method==2)
         timeIntegrator = new gsDynamicImplicitEuler<real_t,true>(Mass,Damping,Jacobian,Residual);
-    else if (method==3 && nonlinear)
-        timeIntegrator = new gsDynamicNewmark<real_t,true>(Mass,Damping,Jacobian,Residual);
-    else if (method==3 && !nonlinear)
+    else if (method==3 && nonlinear==false)
         timeIntegrator = new gsDynamicNewmark<real_t,false>(Mass,Damping,Stiffness,TForce);
+    else if (method==3 && nonlinear==true)
+            timeIntegrator = new gsDynamicNewmark<real_t,true>(Mass,Damping,Jacobian,Residual);
     else if (method==4)
         timeIntegrator = new gsDynamicBathe<real_t,true>(Mass,Damping,Jacobian,Residual);
     else if (method==5)

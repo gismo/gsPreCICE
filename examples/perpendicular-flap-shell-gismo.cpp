@@ -228,7 +228,7 @@ int main(int argc, char *argv[])
      *   + StressData:           This data is defined on the SolidMesh and stores pressure/forces at the integration points
      */
     std::string SolidMesh        = "Solid-Mesh";
-    std::string StressData       = "Force";
+    std::string StressData       = "Stress";
     std::string DisplacementData = "Displacement";
 
     std::vector<patchSide> couplingInterfaces(2);
@@ -300,8 +300,10 @@ int main(int argc, char *argv[])
     options.addInt("Implementation","Implementation: (0): Composites | (1): Analytical | (2): Generalized | (3): Spectral",1);
     materialMatrix = getMaterialMatrix<3, real_t>(mid_surface_geom, t, parameters, Density, options);
 
+    gsMultiBasis<> bases(basis);
+
     gsThinShellAssemblerBase<real_t>* assembler;
-    assembler = new gsThinShellAssembler<3, real_t, true >(mid_surface_geom, basis, bcInfo, surfForce, materialMatrix);
+    assembler = new gsThinShellAssembler<3, real_t, true >(mid_surface_geom, bases, bcInfo, surfForce, materialMatrix);
 
     
     gsOptionList assemblerOptions = options.wrapIntoGroup("Assembler");
@@ -424,15 +426,15 @@ int main(int argc, char *argv[])
 
     gsMatrix<> N_shell(3, quad_xy.rows());
 
-    gsMatrix<> T_shell = thickness.eval(quad_uv);
+    gsMatrix<> T_shell = t.eval(quad_uv);
 
-    gsMatrix<> deformed_thickness(greville.cols(), 3);
+    // gsMatrix<> deformed_thickness(greville.cols(), 3);
 
-    for (index_t k = 0; k != quad_uv.rows(); k++)
-    {
-        N_shell.row(k) = ev.eval(sn(G_shell).normalized(), quad_uv.row(k));
-        deformed_thickness.row(k) = N_shell.row(k) * T_shell(0, k);
-    }
+    // for (index_t k = 0; k != quad_uv.rows(); k++)
+    // {
+    //     N_shell.row(k) = ev.eval(sn(G_shell).normalized(), quad_uv.row(k));
+    //     deformed_thickness.row(k) = N_shell.row(k) * T_shell(0, k);
+    // }
 
     gsDebugVar("Got here 3");
 
@@ -461,20 +463,28 @@ int main(int argc, char *argv[])
 
         participant.readData(SolidMesh, StressData, quadPointIDs, ForceData);
 
-        gsDebugVar(ForceData);
 
         // Ensure ForceData has the correct dimensions
-        if (ForceData.rows() != quad_uv.rows() || ForceData.cols() != 3)
-        {
-            gsWarn << "ForceData dimensions do not match expected dimensions.\n";
-            continue;
-        }
+        // if (ForceData.rows() != quad_uv.rows() || ForceData.cols() != 3)
+        // {
+        //     gsWarn << "ForceData dimensions do not match expected dimensions.\n";
+        //     continue;
+        // }
 
         // Is this really an average? (maybe need to consider normal vector)
-        for (index_t i = 0; i < quad_uv.rows(); ++i)
+        gsDebugVar(ForceData.rows());
+        gsDebugVar(ForceData.cols());
+        gsDebugVar(N.rows());
+        gsDebugVar(N.cols());
+        gsDebugVar(quadPointsData.rows());
+        gsDebugVar(quadPointsData.cols());
+        gsDebugVar(quad_uv.cols());
+        
+        for (index_t i = 0; i < quadPointsData.cols(); ++i)
         {
             // Add the first half and second half values and divide by 2
-            quadPointsData.row(i) = (ForceData.row(i) * N + ForceData.col(i + numQuadPtFront) * N) / 2.0;
+            quadPointsData.col(i) = ((ForceData.col(i)) + (ForceData.col(i + 64))) / 2.0;
+
         }
 
         gsDebugVar(quadPointsData);

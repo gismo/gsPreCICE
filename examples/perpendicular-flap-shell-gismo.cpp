@@ -464,12 +464,6 @@ int main(int argc, char *argv[])
         participant.readData(SolidMesh, StressData, quadPointIDs, ForceData);
 
 
-        // Ensure ForceData has the correct dimensions
-        // if (ForceData.rows() != quad_uv.rows() || ForceData.cols() != 3)
-        // {
-        //     gsWarn << "ForceData dimensions do not match expected dimensions.\n";
-        //     continue;
-        // }
 
         // Is this really an average? (maybe need to consider normal vector)
         gsDebugVar(ForceData.rows());

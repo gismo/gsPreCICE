@@ -107,16 +107,6 @@ public:
      */
     virtual void eval_into(const gsMatrix<T>& u, gsMatrix<T>& result) const override
     {
-<<<<<<< HEAD
-        index_t col;
-        result.resize(this->targetDim(),u.cols());
-        result.setZero();
-        for (index_t k = 0; k!= u.cols(); k++)
-        {
-            GISMO_ASSERT(m_map.find(u.col(k))!=m_map.end(),"Coordinate " + std::to_string(k) + " not registered in the table");
-            col = m_map.at(u.col(k));
-            result.col(k) = m_data.col(col);
-=======
         const T tolerance = 100 * math::numeric_limits<T>::digits10(); 
 
         result.resize(this->targetDim(), u.cols());
@@ -132,7 +122,6 @@ public:
             GISMO_ASSERT(it != m_map.end(),
                 "Coordinate " + util::to_string(k) + " [" + util::to_string(u.col(k).transpose()) + "] not registered in the table within tolerance.");
             result.col(k) = m_data.col(it->second);
->>>>>>> main
         }
     }
 

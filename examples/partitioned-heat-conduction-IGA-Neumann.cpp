@@ -183,8 +183,8 @@ int main(int argc, char* argv[])
     // Setup the boundary condition for the Neumann side
     gsBoundaryConditions<> bcInfo;
     gsConstantFunction<> g_D(0,2); // Dirichlet
-    bcInfo.addCondition(0, boundary::south,  condition_type::neumann  , &fluxMesh.patch(0));
-    bcInfo.addCondition(0, boundary::east,  condition_type::dirichlet  , &u_ex);
+    bcInfo.addCondition(0, boundary::east,  condition_type::neumann  , &fluxMesh.patch(0));
+    bcInfo.addCondition(0, boundary::south,  condition_type::dirichlet  , &u_ex);
     bcInfo.addCondition(0, boundary::west,  condition_type::dirichlet  , &u_ex);
     bcInfo.addCondition(0, boundary::north,  condition_type::dirichlet  , &u_ex);
 

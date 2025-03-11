@@ -259,6 +259,7 @@ int main(int argc, char *argv[])
     bcInfo.addCondition(0, boundary::south, condition_type::dirichlet, 0, 0, false, 0);
     bcInfo.addCondition(0, boundary::south, condition_type::dirichlet, 0, 0, false, 1);
     bcInfo.addCondition(0, boundary::south, condition_type::dirichlet, 0, 0, false, 2);
+    bcInfo.addCondition(0, boundary::south, condition_type::clamped, 0, 0, false, -1);
           
     bcInfo.setGeoMap(mid_surface_geom);
 
@@ -485,7 +486,8 @@ int main(int argc, char *argv[])
 
         gsMatrix<> MidPointDisp = solution.patch(0).eval(quad_shell_uv);
 
-        gsMatrix<> DisplacementData(quad_xy.rows(), 3);
+        gsMatrix<> displacementData(quad_xy.rows(), quad_xy.cols());
+        displacementData.setZero();
 
         DisplacementData << MidPointDisp, MidPointDisp;
 
@@ -509,7 +511,7 @@ int main(int argc, char *argv[])
 
 
         // write heat fluxes to interface
-        participant.writeData(SolidMesh,DisplacementData,quadPointIDs,DisplacementData);
+        participant.writeData(SolidMesh,DisplacementData,quadPointIDs,displacementData);
         
         if (get_writeTime)
             t_write +=participant.writeTime();

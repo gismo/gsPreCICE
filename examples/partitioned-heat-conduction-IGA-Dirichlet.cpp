@@ -119,7 +119,7 @@ int main(int argc, char *argv[])
     // ----------------------------------------------------------------------------------------------
 
     std::vector<patchSide> couplingInterface(1);
-    couplingInterface[0] = patchSide(0,boundary::north);
+    couplingInterface[0] = patchSide(0,boundary::west);
     std::vector<gsGeometry<>::uPtr> boundaries(couplingInterface.size());
 
 
@@ -181,10 +181,11 @@ int main(int argc, char *argv[])
 
     // gsPreCICEFunction<real_t> g_CD(&interface,meshName,(side==0 ? tempName : fluxName),patches,1);
     gsFunction<> * g_C = &u_ex;
-    bcInfo.addCondition(0, boundary::north, condition_type::dirichlet, g_C, 0, false, 0); //For initialization, will be changed later
-    bcInfo.addCondition(0, boundary::west,  condition_type::dirichlet  , &u_ex, 0, false, 0);
-    bcInfo.addCondition(0, boundary::east,  condition_type::dirichlet  , &u_ex, 0, false, 0);
-    bcInfo.addCondition(0, boundary::south,  condition_type::dirichlet  , &u_ex, 0, false, 0);
+    bcInfo.addCondition(0, boundary::west, condition_type::dirichlet, g_C, 0, false, 0); //For initialization, will be changed later
+    bcInfo.addCondition(0, boundary::east,  condition_type::dirichlet, &u_ex);
+    bcInfo.addCondition(0, boundary::north, condition_type::dirichlet, &u_ex);
+    bcInfo.addCondition(0, boundary::south, condition_type::dirichlet, &u_ex);
+
     bcInfo.setGeoMap(patches);
 
     // ----------------------------------------------------------------------------------------------

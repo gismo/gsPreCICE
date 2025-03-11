@@ -70,10 +70,7 @@ int main(int argc, char *argv[])
     try { cmd.getValues(argc,argv); } catch (int rv) { return rv; }
 
     //! [Read input file]
-    GISMO_ASSERT(gsFileManager::fileExists(precice_config),"No precice config file has been defined");
-
-
-
+    // GISMO_ASSERT(gsFileManager::fileExists(precice_config),"No precice config file has been defined");
 
      // Adjust values to the minimum required
     degree = math::max( (index_t)(0), degree    );
@@ -178,9 +175,8 @@ int main(int argc, char *argv[])
 
     gsWriteParaview(mid_surface_geom, "surf_mid",1000,true);
 
-    gsOptionList quadOptions = gsExprAssembler<>::defaultOptions();
     gsMatrix<> quad_shell_uv = gsQuadrature::getAllNodes(basis.basis(0),quadOptions);
-    gsMatrix<> quad_shell_xy = mid_surface_geom.patch(0).eval(quad_shell_uv); // Quadrature points in the physical domain
+    gsMatrix<> quad_shell_xy = mid_surface_geom.eval(quad_shell_uv); // Quadrature points in the physical domain
 
 
 
@@ -196,7 +192,6 @@ int main(int argc, char *argv[])
     //----------------------------------[! Setup expression assembler for normal vectors] ----------------------------------
 
 
-
     real_t rho = 3000;
     real_t E = 4e6;
     real_t nu = 0.3;
@@ -210,9 +205,7 @@ int main(int argc, char *argv[])
      *
      */
     std::string participantName = "Solid";
-    gsPreCICE<real_t> participant(participantName, precice_config);
-
-    gsDebugVar("Got here 1");
+    // gsPreCICE<real_t> participant(participantName, precice_config);
 
         /*
      * Data initialization
@@ -228,13 +221,13 @@ int main(int argc, char *argv[])
      *   + StressData:           This data is defined on the SolidMesh and stores pressure/forces at the integration points
      */
     std::string SolidMesh        = "Solid-Mesh";
-    std::string StressData       = "Stress";
+    std::string StressData       = "Force";
     std::string DisplacementData = "Displacement";
 
     std::vector<patchSide> couplingInterfaces(2);
     couplingInterfaces[0] = patchSide(0,boundary::front);
     // couplingInterfaces[1] = patchSide(0,boundary::north);
-    couplingInterfaces[1] = patchSide(0,boundary::back);
+    couplingInterfaces[2] = patchSide(0,boundary::back);
 
     index_t numQuadPtFront = 64;
     // index_t numQuadPtNorth = 24;
@@ -243,22 +236,23 @@ int main(int argc, char *argv[])
 
     // Step 1: SolidMesh
     // Get the quadrature nodes on the coupling interface
-
+    gsOptionList quadOptions = gsExprAssembler<>::defaultOptions();
 
 
     //We only want the left boundary quadrature points
-    gsDebugVar("Got here 2");
-    gsMatrix<> quad_uv = gsQuadrature::getAllNodes(vbasis.basis(0), quadOptions, couplingInterfaces);
+    gsMatrix<> quad_uv = gsQuadrature::getAllNodes(vbasis.basis(0),quadOptions,couplingInterfaces);
+    gsDebugVar(quad_uv);
+
     gsMatrix<> quad_xy = volume->eval(quad_uv); // Quadrature points in the physical domain
 
-    gsDebugVar(quad_xy);
+    gsDebugVar(quad_xy.dim());
 
     gsWriteParaviewPoints(quad_xy, "quadPointsAll");
 
     gsVector<index_t> quadPointIDs;
-    participant.addMesh(SolidMesh,quad_xy,quadPointIDs); //Set the vertices to be datapoints (quadpoints in physical domain)
+    // participant.addMesh(SolidMesh,quad_xy,quadPointIDs); //Set the vertices to be datapoints (quadpoints in physical domain)
 
-    real_t precice_dt = participant.initialize();
+    // real_t precice_dt = participant.initialize();
 
     gsBoundaryConditions<> bcInfo;
 
@@ -269,11 +263,11 @@ int main(int argc, char *argv[])
     bcInfo.setGeoMap(mid_surface_geom);
 
     // Set up the material matrices
-    gsFunctionExpr<> E_modulus(std::to_string(E), 3);
-    gsFunctionExpr<> PoissonRatio(std::to_string(nu), 3);
-    gsFunctionExpr<> Density(std::to_string(rho), 3);
+    gsFunctionExpr<> E_modulus(std::to_string(E),3);
+    gsFunctionExpr<> PoissonRatio(std::to_string(nu),3);
+    gsFunctionExpr<> Density(std::to_string(rho),3);
 
-    gsFunctionExpr<> t("0.1", 3);
+    gsFunctionExpr<> t("0.1",3);
 
     std::vector<gsFunctionSet<>*> parameters(2);
     parameters[0] = &E_modulus;
@@ -281,46 +275,30 @@ int main(int argc, char *argv[])
 
     gsOptionList options;
 
-
-
-    // Question: how to map the force information onto quad points as a surface force for gsThinShellAssembler?
-    gsMatrix<> quadPointsData(quad_shell_xy.rows(), quad_shell_xy.cols()); // Ensure the dimensions match
-    quadPointsData.setZero();
-
-    gsDebugVar(quad_shell_xy);
-    gsLookupFunction<real_t> surfForce(quad_shell_xy, quadPointsData);
-
-    // gsMatrix<> displacementData = gsMatrix<>::Zero(3, comPt.rows());
-    // displacementData.setRandom();
-
- 
-
+    // gsMaterialMatrixBase<real_t>* materialMatrix;
     gsMaterialMatrixBase<real_t>::uPtr materialMatrix;
     options.addInt("Material","Material model: (0): SvK | (1): NH | (2): NH_ext | (3): MR | (4): Ogden",0);
     options.addInt("Implementation","Implementation: (0): Composites | (1): Analytical | (2): Generalized | (3): Spectral",1);
-    materialMatrix = getMaterialMatrix<3, real_t>(mid_surface_geom, t, parameters, Density, options);
+    materialMatrix = getMaterialMatrix<3, real_t>(patches, t, parameters, Density, options);
 
-    gsMultiBasis<> bases(basis);
+    gsLookupFunction<real_t> surfForce(quad_shell_xy, quadPointsData);
 
-    gsThinShellAssemblerBase<real_t>* assembler;
-    assembler = new gsThinShellAssembler<3, real_t, true >(mid_surface_geom, bases, bcInfo, surfForce, materialMatrix);
-
-    
+    gsThinShellAssembler<3, real_t, false> assembler(patches, basis, bcInfo, surfForce, materialMatrix);
     gsOptionList assemblerOptions = options.wrapIntoGroup("Assembler");
 
-    assembler->assemble();
-    assembler->setOptions(assemblerOptions);
+    assembler.assemble();
+    assembler.setOptions(assemblerOptions);
 
     index_t timestep = 0;
     index_t timestep_checkpoint = 0;
 
     // Compute the mass matrix (since it is constant over time)
-    assembler->assembleMass();
-    gsSparseMatrix<> M = assembler->massMatrix();
-    assembler->assemble();
-    gsSparseMatrix<> K = assembler->matrix();
+    assembler.assembleMass();
+    gsSparseMatrix<> M = assembler.massMatrix();
+    assembler.assemble();
+    gsSparseMatrix<> K = assembler.matrix();
 
-    gsFileManager::mkdir(dirname);
+    gsFileManager::mkdir(dirname); 
     gsParaviewCollection collection(dirname + "/solution");
 
     // Time step
@@ -329,118 +307,124 @@ int main(int argc, char *argv[])
     real_t t_write = 0;
     real_t dt = precice_dt;
 
-    gsStructuralAnalysisOps<real_t>::Jacobian_t Jacobian = [&assembler, &solutions](gsMatrix<real_t> const &x, gsSparseMatrix<real_t> &m)
+    gsStructuralAnalysisOps<real_t>::Jacobian_t Jacobian = [&assembler,&solutions](gsMatrix<real_t> const &x, gsSparseMatrix<real_t> & m) 
     {
-        assembler->constructSolution(x, solutions);
+        // to do: add time dependency of forcing
+        // For the shell
         ThinShellAssemblerStatus status;
-        status = assembler->assembleMatrix(solutions);
-        m = assembler->matrix();
+        assembler.constructSolution(x, solutions);
+        status = assembler.assembleMatrix(solutions);
+        m = assembler.matrix();
         return true;
     };
+
 
     // Function for the Residual
-    gsStructuralAnalysisOps<real_t>::TResidual_t Residual = [&assembler, &solutions](gsMatrix<real_t> const &x, real_t t, gsVector<real_t> &result)
+    gsStructuralAnalysisOps<real_t>::TResidual_t Residual = [&assembler,&solutions](gsMatrix<real_t> const &x, real_t t, gsVector<real_t> & result)
     {
-        assembler->constructSolution(x, solutions);
+        //Add assemble vector JL
         ThinShellAssemblerStatus status;
-        status = assembler->assembleVector(solutions);
-        result = assembler->rhs();
+        assembler.constructSolution(x,solutions);
+        status = assembler.assembleVector(solutions);
+        result = assembler.rhs();
         return true;
     };
 
-    gsSparseMatrix<> C = gsSparseMatrix<>(assembler->numDofs(), assembler->numDofs());
-    gsStructuralAnalysisOps<real_t>::Damping_t Damping = [&C](const gsVector<real_t> &, gsSparseMatrix<real_t> &m) { m = C; return true; };
-    gsStructuralAnalysisOps<real_t>::Mass_t Mass = [&M](gsSparseMatrix<real_t> &m) { m = M; return true; };
 
-    gsDynamicBase<real_t> *timeIntegrator;
-    if (method == 1)
-        timeIntegrator = new gsDynamicExplicitEuler<real_t, true>(Mass, Damping, Jacobian, Residual);
-    else if (method == 2)
-        timeIntegrator = new gsDynamicImplicitEuler<real_t, true>(Mass, Damping, Jacobian, Residual);
-    else if (method == 3)
-        timeIntegrator = new gsDynamicNewmark<real_t, true>(Mass, Damping, Jacobian, Residual);
-    else if (method == 4)
-        timeIntegrator = new gsDynamicBathe<real_t, true>(Mass, Damping, Jacobian, Residual);
-    else if (method == 5)
+    gsSparseMatrix<> C = gsSparseMatrix<>(assembler.numDofs(),assembler.numDofs());
+    gsStructuralAnalysisOps<real_t>::Damping_t Damping = [&C](const gsVector<real_t> &, gsSparseMatrix<real_t> & m) { m = C; return true; };
+    gsStructuralAnalysisOps<real_t>::Mass_t    Mass    = [&M](                          gsSparseMatrix<real_t> & m) { m = M; return true; };
+
+    gsDynamicBase<real_t> * timeIntegrator;
+    if (method==1)
+        timeIntegrator = new gsDynamicExplicitEuler<real_t,true>(Mass,Damping,Jacobian,Residual);
+    else if (method==2)
+        timeIntegrator = new gsDynamicImplicitEuler<real_t,true>(Mass,Damping,Jacobian,Residual);
+    else if (method==3)
+        timeIntegrator = new gsDynamicNewmark<real_t,true>(Mass,Damping,Jacobian,Residual);
+    else if (method==4)
+        timeIntegrator = new gsDynamicBathe<real_t,true>(Mass,Damping,Jacobian,Residual);
+    else if (method==5)
     {
-        timeIntegrator = new gsDynamicWilson<real_t, true>(Mass, Damping, Jacobian, Residual);
-        timeIntegrator->options().setReal("gamma", 1.4);
+        timeIntegrator = new gsDynamicWilson<real_t,true>(Mass,Damping,Jacobian,Residual);
+        timeIntegrator->options().setReal("gamma",1.4);
     }
-    else if (method == 6)
-        timeIntegrator = new gsDynamicRK4<real_t, true>(Mass, Damping, Jacobian, Residual);
+    else if (method==6)
+        timeIntegrator = new gsDynamicRK4<real_t,true>(Mass,Damping,Jacobian,Residual);
     else
-        GISMO_ERROR("Method " << method << " not known");
+        GISMO_ERROR("Method "<<method<<" not known");
 
-    timeIntegrator->options().setReal("DT", dt);
-    timeIntegrator->options().setReal("TolU", 1e-3);
-    timeIntegrator->options().setSwitch("Verbose", true);
 
-    // Project u_wall as initial condition (violates Dirichlet side on precice interface)
+    timeIntegrator->options().setReal("DT",dt);
+    timeIntegrator->options().setReal("TolU",1e-3);
+    timeIntegrator->options().setSwitch("Verbose",true);
+
+    // Project u_wall as ini
+    // tial condition (violates Dirichlet side on precice interface)
     // RHS of the projection
     gsMatrix<> solVector;
-    solVector.setZero(assembler->numDofs(), 1);
+    solVector.setZero(assembler.numDofs(),1);
 
     // Assemble the RHS
-    gsVector<> F = assembler->rhs();
+    gsVector<> F = assembler.rhs();
 
     gsDebugVar(F);
 
     gsVector<> F_checkpoint, U_checkpoint, V_checkpoint, A_checkpoint, U, V, A;
 
     F_checkpoint = F;
-    U_checkpoint = U = gsVector<real_t>::Zero(assembler->numDofs(), 1);
-    V_checkpoint = V = gsVector<real_t>::Zero(assembler->numDofs(), 1);
-    A_checkpoint = A = gsVector<real_t>::Zero(assembler->numDofs(), 1);
+    U_checkpoint = U = gsVector<real_t>::Zero(assembler.numDofs(),1);
+    V_checkpoint = V = gsVector<real_t>::Zero(assembler.numDofs(),1);
+    A_checkpoint = A = gsVector<real_t>::Zero(assembler.numDofs(),1);
 
     real_t time = 0;
-    gsDebugVar("Got here 467");
     if (plot)
     {
         gsMultiPatch<> solution;
         gsVector<> displacements = U;
-        solution = assembler->constructDisplacement(displacements);
-        solution.patch(0).coefs() -= mid_surface_geom.patch(0).coefs(); // assuming 1 patch here
-        gsField<> solField(mid_surface_geom, solution);
+        solution = assembler.constructDisplacement(displacements);
+        solution.patch(0).coefs() -= patches.patch(0).coefs();// assuming 1 patch here
+        gsField<> solField(patches,solution);
         std::string fileName = dirname + "/solution" + util::to_string(timestep);
         gsWriteParaview<>(solField, fileName, 500);
         fileName = "solution" + util::to_string(timestep) + "0";
-        collection.addTimestep(fileName, time, ".vts");
+        collection.addTimestep(fileName,time,".vts");
     }
 
-    // gsMatrix<> points(2, 1);
-    // points.col(0) << 0.5, 1;
+    // gsMatrix<> points(2,1);
+    // points.col(0)<<0.5,1;
 
-    // gsStructuralAnalysisOutput<real_t> writer("./output/pointData.csv", points);
-    // writer.init({"x", "y", "z"}, {"time"}); // point1 - x, point1 - y, point1 - z, time
+    // gsStructuralAnalysisOutput<real_t> writer("./output/pointData.csv",points);
+    // writer.init({"x","y","z"},{"time"}); // point1 - x, point1 - y, point1 - z, time
 
     gsMatrix<> pointDataMatrix;
-    gsMatrix<> otherDataMatrix(1, 1);
+    gsMatrix<> otherDataMatrix(1,1);
 
     gsMatrix<> ForceData(3, quad_xy.cols());
+    gsMatrix<> quadPointsNormalData(3, quadPointsAll.cols());
     // comForceData.setZero();
 
     // Evaluate the normal vector for the mid surface
     gsExprEvaluator<> ev_shell;
     ev_shell.setIntegrationElements(basis);
     auto G_shell = ev_shell.getMap(mid_surface_geom);
+    
 
     gsMatrix<> N_shell(3, quad_xy.rows());
 
-    gsMatrix<> T_shell = t.eval(quad_uv);
+    gsMatrix<> T_shell = thickness.eval(greville);
 
-    // gsMatrix<> deformed_thickness(greville.cols(), 3);
+    gsMatrix<> deformed_thickness(greville.cols(), 3);
 
-    // for (index_t k = 0; k != quad_uv.rows(); k++)
-    // {
-    //     N_shell.row(k) = ev.eval(sn(G_shell).normalized(), quad_uv.row(k));
-    //     deformed_thickness.row(k) = N_shell.row(k) * T_shell(0, k);
-    // }
-
-    gsDebugVar("Got here 3");
+    for (index_t k=0; k!=quad_uv.rows(); k++)
+    {
+        N_shell.row(k) = ev.eval( sn(G_shell).normalized(), quad_uv.row(k) );
+        deformed_thickness.row(k) = N_shell.row(k) * T_shell(0,k);
+    }
 
     gsMatrix<> ForceDataShell(quad_shell_uv.rows(), 3);
 
-    while (participant.isCouplingOngoing())
+     while (participant.isCouplingOngoing())
     {
         if (participant.requiresWritingCheckpoint())
         {
@@ -448,10 +432,10 @@ int main(int argc, char *argv[])
             V_checkpoint = V;
             A_checkpoint = A;
 
-            gsInfo << "Checkpoint written:\n";
-            gsInfo << "\t ||U|| = " << U.norm() << "\n";
-            gsInfo << "\t ||V|| = " << V.norm() << "\n";
-            gsInfo << "\t ||A|| = " << A.norm() << "\n";
+            gsInfo<<"Checkpoint written:\n";
+            gsInfo<<"\t ||U|| = "<<U.norm()<<"\n";
+            gsInfo<<"\t ||V|| = "<<V.norm()<<"\n";
+            gsInfo<<"\t ||A|| = "<<A.norm()<<"\n";
 
             timestep_checkpoint = timestep;
         }
@@ -460,26 +444,19 @@ int main(int argc, char *argv[])
         // F = assembler.rhs();
 
         gsDebugVar(bcInfo);
-
-        participant.readData(SolidMesh, StressData, quadPointIDs, ForceData);
-
-
-
-        // Is this really an average? (maybe need to consider normal vector)
-        gsDebugVar(ForceData.rows());
-        gsDebugVar(ForceData.cols());
-        gsDebugVar(N.rows());
-        gsDebugVar(N.cols());
-        gsDebugVar(quadPointsData.rows());
-        gsDebugVar(quadPointsData.cols());
-        gsDebugVar(quad_uv.cols());
         
-        for (index_t i = 0; i < quadPointsData.cols(); ++i)
+        participant.readData(SolidMesh,StressData,quadPointIDs,ForceData);
+
+        gsDebugVar(ForceData);
+
+     
+        //Is this really an average? (maybe need to consider normal vector)
+        for (index_t i = 0; i < quad_uv.rows(); ++i) 
         {
             // Add the first half and second half values and divide by 2
-            quadPointsData.col(i) = ((ForceData.col(i)) + (ForceData.col(i + 64))) / 2.0;
-
+            quadPointsData.row(i) = (ForceData.row(i)  + ForceData.row(i + numQuadPtFront )) / 2.0;
         }
+
 
         gsDebugVar(quadPointsData);
 
@@ -488,38 +465,58 @@ int main(int argc, char *argv[])
         // forceMesh.patch(0).coefs() = forceControlPoints.transpose();
 
         // forceMesh.embed(3);
-        assembler->assemble();
-        F = assembler->rhs();
+        assembler.assemble();
+        F = assembler.rhs();
 
         // solve gismo timestep
         gsInfo << "Solving timestep " << time << "...\n";
-        timeIntegrator->step(time, dt, U, V, A);
+        timeIntegrator->step(time,dt,U,V,A);
         solVector = U;
-        gsInfo << "Finished\n";
+        gsInfo<<"Finished\n";
 
         // potentially adjust non-matching timestep sizes
-        dt = std::min(dt, precice_dt);
+        dt = std::min(dt,precice_dt);
 
         gsMultiPatch<> solution;
         gsVector<> displacements = U;
-        solution = assembler->constructDisplacement(displacements);
+        solution = assembler.constructDisplacement(displacements);
 
         gsDebugVar(displacements);
 
         gsMatrix<> MidPointDisp = solution.patch(0).eval(quad_shell_uv);
 
-        gsMatrix<> displacementData(quad_xy.rows(), 3);
+        gsMatrix<> DisplacementData(quad_xy.rows(), 3);
 
-        displacementData << MidPointDisp, MidPointDisp;
+        DisplacementData << MidPointDisp, MidPointDisp;
+
+        // gsMatrix<> deformed_thickness(greville.cols(), 3);
+
+        // for (index_t k=0; k!=greville.cols(); k++)
+        // {
+        //     N_shell.row(k) = ev.eval( sn(G_shell).normalized(), greville.row(k) );
+        //     deformed_thickness.row(k) = N_shell.row(k) * T_shell(0,k);
+        // }
+
+        // gsMatrix<> deformedcoefs3D(3*greville.cols(), 3);
+
+        // deformedcoefs3D.block(0                ,0,greville.cols(),3) = displacements - deformed_thickness;
+        // deformedcoefs3D.block(greville.cols()  ,0,greville.cols(),3) = displacements;
+        // deformedcoefs3D.block(2*greville.cols(),0,greville.cols(),3) = displacements + deformed_thickness;
+
+
+        // gsMatrix<> dispPoints(2, dispLeft.cols() + dispRight.cols());
+        // dispPoints << dispLeft, dispRight;
+
 
         // write heat fluxes to interface
-        participant.writeData(SolidMesh, DisplacementData, quadPointIDs, displacementData);
-
+        participant.writeData(SolidMesh,DisplacementData,quadPointIDs,DisplacementData);
+        
         if (get_writeTime)
-            t_write += participant.writeTime();
+            t_write +=participant.writeTime();
+
 
         // do the coupling
-        precice_dt = participant.advance(dt);
+        precice_dt =participant.advance(dt);
 
         if (participant.requiresReadingCheckpoint())
         {
@@ -530,22 +527,23 @@ int main(int argc, char *argv[])
         }
         else
         {
-            // gsTimeIntegrator advances the time step
+            // gsTimeIntegrator advances the time step                   
             // advance variables
             time += dt;
             timestep++;
 
-            gsField<> solField(mid_surface_geom, solution);
-            if (timestep % plotmod == 0 && plot)
+            gsField<> solField(patches,solution);
+            if (timestep % plotmod==0 && plot)
             {
                 // solution.patch(0).coefs() -= patches.patch(0).coefs();// assuming 1 patch here
                 std::string fileName = dirname + "/solution" + util::to_string(timestep);
                 gsWriteParaview<>(solField, fileName, 500);
                 fileName = "solution" + util::to_string(timestep) + "0";
-                collection.addTimestep(fileName, time, ".vts");
+                collection.addTimestep(fileName,time,".vts");
             }
-
-            otherDataMatrix << time;
+            solution.patch(0).eval_into(points,pointDataMatrix);
+            otherDataMatrix<<time;
+            writer.add(pointDataMatrix,otherDataMatrix);
         }
     }
     if (get_readTime)
@@ -564,7 +562,7 @@ int main(int argc, char *argv[])
     }
 
     delete timeIntegrator;
-    return EXIT_SUCCESS;
+    return  EXIT_SUCCESS;
 
 }
 

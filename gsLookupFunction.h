@@ -107,6 +107,7 @@ public:
      */
     virtual void eval_into(const gsMatrix<T>& u, gsMatrix<T>& result) const override
     {
+        // Define the tolerance relative to the type's precision
         const T tolerance = 100 * math::numeric_limits<T>::digits10(); 
 
         result.resize(this->targetDim(), u.cols());
@@ -121,10 +122,12 @@ public:
 
             GISMO_ASSERT(it != m_map.end(),
                 "Coordinate " + util::to_string(k) + " [" + util::to_string(u.col(k).transpose()) + "] not registered in the table within tolerance.");
+
             result.col(k) = m_data.col(it->second);
         }
     }
 
+    
     /// See \a gsFunction
     virtual void deriv_into(const gsMatrix<T>& u, gsMatrix<T>& result) const
     {

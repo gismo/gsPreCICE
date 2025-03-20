@@ -87,13 +87,16 @@ int main(int argc, char *argv[])
               << "----------------------\n\n";
 
     // 1. construction of a knot vector for each direction
+    // 1. Construction of knot vectors for each direction
     gsKnotVector<> kv1(0, 1, n - degree - 1, degree + 1);
     gsKnotVector<> kv2(0, 1, m - degree - 1, degree + 1);
 
     // 2. construction of a basis
+    // 2. Construction of a tensor B-spline basis
     gsTensorBSplineBasis<2, real_t> basis(kv1, kv2);
 
     // 3. construction of a coefficients
+    // 3. Generate control points for vertical flap geometry
     gsMatrix<> greville = basis.anchors();
     gsMatrix<> coefs (greville.cols(), 3);
 
@@ -102,12 +105,14 @@ int main(int argc, char *argv[])
         real_t x = greville(0, col);
         real_t y = greville(1, col);
 
-        coefs(col, 0) = x;
-        coefs(col, 1) = y;
-        coefs(col, 2) = 0;
+        // Position the flap vertically in the YZ plane at x=0
+        coefs(col, 0) = 0;         // Fixed at x=0
+        coefs(col, 1) = y;         // Y-coordinate 
+        coefs(col, 2) = x;         // Map parameter x to physical z for vertical orientation
     }
 
     // 4. putting basis and coefficients toghether
+    // 4. Create the surface geometry
     gsTensorBSpline<2, real_t>  surface(basis, coefs);
 
     gsExprEvaluator<> ev;
@@ -116,65 +121,58 @@ int main(int argc, char *argv[])
 
     // Make the volumetric basis
     //----------------------------------Generating the initial volume----------------------------------
+    // Create a volumetric shell with thickness
     gsKnotVector<> kv3(0, 1, 0, 3);
     gsTensorBSplineBasis<3, real_t> vbasis(kv1, kv2, kv3);
-    gsDebugVar(vbasis);
     gsMatrix<> coefs3D(3*greville.cols(), 3);
 
+    // Define constant thickness for the shell
     gsFunctionExpr<> thickness("0.1",2);
     gsMatrix<> N;
     gsMatrix<> T = thickness.eval(greville);
     gsMatrix<> dcoefs(greville.cols(), 3);
-    dcoefs.setZero();//not needed
+    dcoefs.setZero();
+    // Calculate normal vectors at each control point
     for (index_t k=0; k!=greville.cols(); k++)
     {
         N = ev.eval(sn(G).normalized(),greville.col(k));
         dcoefs.row(k).transpose() = N*T(0,k);
     }
-    coefs3D.block(0                ,0,greville.cols(),3) = coefs-dcoefs;
-    coefs3D.block(greville.cols()  ,0,greville.cols(),3) = coefs;
-    coefs3D.block(2*greville.cols(),0,greville.cols(),3) = coefs+dcoefs;
+    
+    // 填充3D控制点（只保留一次，移除重复部分）
+    // Fill 3D control points with bottom, middle and top layers
+    coefs3D.block(0                ,0,greville.cols(),3) = coefs-dcoefs;  // Bottom layer
+    coefs3D.block(greville.cols()  ,0,greville.cols(),3) = coefs;         // Middle layer
+    coefs3D.block(2*greville.cols(),0,greville.cols(),3) = coefs+dcoefs;  // Top layer
 
-    coefs3D << coefs-dcoefs, coefs, coefs+dcoefs;
     gsGeometry<>::uPtr volume = vbasis.makeGeometry(coefs3D);
     gsWriteParaview(*volume, "volume",1000,true);
     //----------------------------------Generating the boundary volume----------------------------------
 
     //----------------------------------Generating the initial surface----------------------------------
-    // direction to eliminate
+    // Extract the middle surface geometry for shell analysis
     short_t dir = 2;
-    // ASSUMES THICKNESS IS ALWAYS IN DIR2
-    // for (index_t k=0; k!=volume.coefs().rows()/volume.basis().component(2).size(); k++)
 
     index_t componentSize = volume->coefs().rows()/3;
     gsMatrix<> coefsSurf(componentSize,3);
     coefsSurf.setZero();
     gsMatrix<> dcoefsSurf(componentSize,3);
 
-    gsDebugVar(componentSize);
-
-    gsDebugVar(coefsSurf.dim());
-    gsDebugVar(coefs3D.dim());
-
-    gsDebugVar(N);
-
-
-
+    // Calculate mid-surface control points and thickness vectors
     for (index_t k=0; k!=componentSize; k++)
     {
-        coefsSurf.row(k) = (coefs3D.row(k)+coefs3D.row(k+2*componentSize))/2;
-        dcoefsSurf.row(k) = (coefs3D.row(k+2*componentSize)-coefs3D.row(k))/2; // think about the normal
+        coefsSurf.row(k) = (coefs3D.row(k)+coefs3D.row(k+2*componentSize))/2;  // Mid-surface points
+        dcoefsSurf.row(k) = (coefs3D.row(k+2*componentSize)-coefs3D.row(k))/2; // Thickness direction vectors
     }
     coefsSurf.transposeInPlace();
     dcoefsSurf.transposeInPlace();
     gsWriteParaviewPoints(coefsSurf, "coefsSurf");
     gsWriteParaviewPoints(dcoefsSurf, "dcoefsSurf");
 
+    // Create mid-surface geometry for shell analysis
     gsGeometry<>::uPtr surf_mid = basis.makeGeometry(coefsSurf.transpose());
     gsMultiPatch<> mid_surface_geom;
-    mid_surface_geom.addPatch(std::move(surf_mid)); // Use std::move to transfer ownership. The coefs for mid_surface_geom is 3D.
-
-
+    mid_surface_geom.addPatch(std::move(surf_mid));
 
     gsWriteParaview(mid_surface_geom, "surf_mid",1000,true);
 
@@ -386,7 +384,7 @@ int main(int argc, char *argv[])
     // Assemble the RHS
     gsVector<> F = assembler->rhs();
 
-    gsDebugVar(F);
+
 
     gsVector<> F_checkpoint, U_checkpoint, V_checkpoint, A_checkpoint, U, V, A;
 
@@ -396,7 +394,7 @@ int main(int argc, char *argv[])
     A_checkpoint = A = gsVector<real_t>::Zero(assembler->numDofs(), 1);
 
     real_t time = 0;
-    gsDebugVar("Got here 467");
+
     if (plot)
     {
         gsMultiPatch<> solution;
@@ -404,10 +402,22 @@ int main(int argc, char *argv[])
         solution = assembler->constructDisplacement(displacements);
         solution.patch(0).coefs() -= mid_surface_geom.patch(0).coefs(); // assuming 1 patch here
         gsField<> solField(mid_surface_geom, solution);
+        
+
+        // Create consistent file naming format for initial step
         std::string fileName = dirname + "/solution" + util::to_string(timestep);
         gsWriteParaview<>(solField, fileName, 500);
-        fileName = "solution" + util::to_string(timestep) + "0";
-        collection.addTimestep(fileName, time, ".vts");
+        std::string fileNameSol = "solution" + util::to_string(timestep) + "0";
+        collection.addTimestep(fileNameSol, time, ".vts");
+        
+
+        // Also create output for initial volume deformation
+        std::string fileName2 = dirname + "/deformed_volume" + util::to_string(timestep);
+        gsWriteParaview(*volume, fileName2, 1000, true);
+        std::string fileNameVol = "deformed_volume" + util::to_string(timestep);
+        collection_volume.addTimestep(fileNameVol, time, ".vts");
+        
+
     }
 
     // gsMatrix<> points(2, 1);
@@ -497,59 +507,93 @@ int main(int argc, char *argv[])
         F = assembler->rhs();
 
         // solve gismo timestep
+        // Solve the time step using the time integrator
         gsInfo << "Solving timestep " << time << "...\n";
         timeIntegrator->step(time, dt, U, V, A);
         solVector = U;
         gsInfo << "Finished\n";
 
-        // potentially adjust non-matching timestep sizes
+        // 调整不匹配的时间步大小
+        // Adjust time step size to match PreCICE requirements
         dt = std::min(dt, precice_dt);
 
+        // Construct displacement solution
         gsMultiPatch<> solution;
         gsVector<> displacements = U;
         solution = assembler->constructDisplacement(displacements);
 
+        // Evaluate displacements at quadrature points and control points
         gsMatrix<> MidPointDisp = solution.patch(0).eval(quad_shell_uv);
         gsMatrix<> MidPointDisp2 = solution.patch(0).eval(greville);
 
-
-
-        // Compute deformed thickness for visualization
-        // gsDebugVar(ev.eval( sn(G_shell).normalized(), greville.col(0) ));
+        // 计算可视化的变形厚度
+        // Compute deformed thickness vectors for visualization
         T_shell = thickness_3d.eval(quad_uv);
         for (index_t k = 0; k != greville.cols(); k++)
         {
-            N_shell = ev.eval( sn(G_shell).normalized(), greville.col(k) ).transpose();
+            N_shell = ev.eval(sn(G_shell).normalized(), greville.col(k)).transpose();
             deformed_thickness.row(k) = N_shell * T_shell(0,k);
         }
 
-        gsDebugVar(deformed_thickness);
 
-
-        deformedcoefs3D.block(0, 0, greville.cols(), 3) = mid_surface_geom.patch(0).coefs() - deformed_thickness;
-        deformedcoefs3D.block(greville.cols(), 0, greville.cols(), 3) = mid_surface_geom.patch(0).coefs() ;
-        deformedcoefs3D.block(2 * greville.cols(), 0, greville.cols(), 3) = mid_surface_geom.patch(0).coefs()  + deformed_thickness;
-        gsDebugVar(MidPointDisp2.dim());
-        gsDebugVar(MidPointDisp.dim());
-        gsDebugVar(deformedcoefs3D.dim());
-        deformedcoefs3D << mid_surface_geom.patch(0).coefs() - deformed_thickness + MidPointDisp2.transpose() 
-                         , mid_surface_geom.patch(0).coefs() + MidPointDisp2.transpose()
-                         , mid_surface_geom.patch(0).coefs()  + deformed_thickness + MidPointDisp2.transpose();
-
-        gsGeometry<>::uPtr deformed_volume = vbasis.makeGeometry(deformedcoefs3D);
-        gsWriteParaview(*deformed_volume, "deformed_volume",1000,true);
+        // Get the shell control points
+        gsMatrix<> shell_coefs = mid_surface_geom.patch(0).coefs();
         
 
-        // gsMatrix<> MidPointDisp = solution.patch(0).eval(quad_shell_uv);
+        // Create deformed volume control points
+        deformedcoefs3D.resize(3 * greville.cols(), 3);
+        
 
+        // For vertically positioned shell, normal vectors point in x direction
+        // Bottom layer: middle layer - thickness vector + displacement
+        deformedcoefs3D.block(0, 0, greville.cols(), 3) = shell_coefs + MidPointDisp2.transpose() - deformed_thickness;
+        
+    
+        // Middle layer: middle layer + displacement
+        deformedcoefs3D.block(greville.cols(), 0, greville.cols(), 3) = shell_coefs + MidPointDisp2.transpose();
+        
+
+        // Top layer: middle layer + thickness vector + displacement
+        deformedcoefs3D.block(2 * greville.cols(), 0, greville.cols(), 3) = shell_coefs + MidPointDisp2.transpose() + deformed_thickness;
+
+
+        // Create and visualize the deformed volume
+        gsGeometry<>::uPtr deformed_volume = vbasis.makeGeometry(deformedcoefs3D);
+        gsWriteParaview(*deformed_volume, "deformed_volume", 1000, true);
+        
+
+        // Add solution field to the deformed volume for visualization
+        gsMultiPatch<> mp_volume;
+        mp_volume.addPatch(deformed_volume->clone());
+        
+
+        // Create volume displacement field
+        gsMatrix<> volumeDisplacement = deformedcoefs3D;
+
+        // Get original volume control points
+        gsMatrix<> originalVolCoefs(3*greville.cols(), 3);
+        originalVolCoefs.block(0, 0, greville.cols(), 3) = coefs-dcoefs;
+        originalVolCoefs.block(greville.cols(), 0, greville.cols(), 3) = coefs;
+        originalVolCoefs.block(2*greville.cols(), 0, greville.cols(), 3) = coefs+dcoefs;
+        
+        // Calculate displacement (deformed volume - original volume)
+        volumeDisplacement -= originalVolCoefs;
+
+        // Create geometry representing displacement
+        gsGeometry<>::uPtr displacementGeo = vbasis.makeGeometry(volumeDisplacement);
+        gsMultiPatch<> mp_displacement;
+        mp_displacement.addPatch(displacementGeo->clone());
+        
+        
+        // Create and visualize displacement field
+        // gsField<> displacementField(mp_volume, mp_displacement);
+        
+        // Prepare displacement data for coupling
         gsMatrix<> displacementData(3, quad_xy.cols());
-
-        gsDebugVar(MidPointDisp.dim());
-        gsDebugVar(displacementData.dim());
-
         displacementData << MidPointDisp, MidPointDisp;
 
-        // write heat fluxes to interface
+        
+        // Write displacement data to interface for FSI coupling
         participant.writeData(SolidMesh, DisplacementData, quadPointIDs, displacementData);
 
         if (get_writeTime)
@@ -567,24 +611,21 @@ int main(int argc, char *argv[])
         }
         else
         {
-            // gsTimeIntegrator advances the time step
-            // advance variables
             time += dt;
             timestep++;
 
             gsField<> solField(mid_surface_geom, solution);
             if (timestep % plotmod == 0 && plot)
             {
-                // solution.patch(0).coefs() -= patches.patch(0).coefs();// assuming 1 patch here
                 std::string fileName = dirname + "/solution" + util::to_string(timestep);
                 gsWriteParaview<>(solField, fileName, 500);
-                fileName = "solution" + util::to_string(timestep) + "0";
-                collection.addTimestep(fileName, time, ".vts");
+                std::string fileNameSol = "solution" + util::to_string(timestep) + "0";
+                collection.addTimestep(fileNameSol, time, ".vts");
 
                 std::string fileName2 = dirname + "/deformed_volume" + util::to_string(timestep);
                 gsWriteParaview(*deformed_volume, fileName2, 1000, true);
-                collection_volume.addTimestep(fileName2, time, ".vts");
-
+                std::string fileNameVol = "deformed_volume" + util::to_string(timestep);
+                collection_volume.addTimestep(fileNameVol, time, ".vts");
             }
 
             otherDataMatrix << time;

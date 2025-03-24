@@ -130,12 +130,46 @@ int main(int argc, char *argv[])
 
     // Get the quadrature nodes on the coupling interface
     gsOptionList quadOptions = gsExprAssembler<>::defaultOptions();
+    quadOptions.setInt("quRule", 1); 
+    quadOptions.setReal("quA", 1.0);
+    quadOptions.setInt("quB", 2); 
 
     // Get the quadrature points
     gsMatrix<> quad_uv = gsQuadrature::getAllNodes(bases.basis(0),quadOptions,couplingInterfaces); // Quadrature points in the parametric domain
     gsMatrix<> quad_xy = patches.patch(0).eval(quad_uv); // Quadrature points in the physical domain
+
+
+    const real_t tolerance = 1e-8; 
+    std::vector<index_t> unique_indices;
+    unique_indices.reserve(quad_xy.cols());
+    
+    for(index_t i = 0; i < quad_xy.cols(); ++i) {
+        bool is_unique = true;
+        for(index_t j = 0; j < unique_indices.size(); ++j) {
+            if((quad_xy.col(i) - quad_xy.col(unique_indices[j])).norm() < tolerance) {
+                is_unique = false;
+                break;
+            }
+        }
+        if(is_unique) {
+            unique_indices.push_back(i);
+        }
+    }
+
+
+    gsMatrix<> unique_quad_xy(quad_xy.rows(), unique_indices.size());
+    gsMatrix<> unique_quad_uv(quad_uv.rows(), unique_indices.size());
+    for(index_t i = 0; i < unique_indices.size(); ++i) {
+        unique_quad_xy.col(i) = quad_xy.col(unique_indices[i]);
+        unique_quad_uv.col(i) = quad_uv.col(unique_indices[i]);
+    }
+
+
+    gsInfo << "Number of unique quadrature points: " << unique_quad_xy.cols() << "\n";
+    gsInfo << "First few points:\n" << unique_quad_xy.leftCols(5) << "\n";
+
     gsVector<index_t> quad_xyIDs; // needed for writing
-    participant.addMesh(SolidMesh,quad_xy,quad_xyIDs);
+    participant.addMesh(SolidMesh, unique_quad_xy, quad_xyIDs);
 
     // Define precice interface
     real_t precice_dt = participant.initialize();
@@ -330,9 +364,22 @@ int main(int argc, char *argv[])
         gsMultiPatch<> solution;
         assembler.constructSolution(solVector,fixedDofs,solution);
         // write heat fluxes to interface
-        gsMatrix<> result(patches.geoDim(),quad_uv.cols());
-        solution.patch(0).eval_into(quad_uv,result);
-        participant.writeData(SolidMesh,DisplacementData,quad_xyIDs,result);
+        gsMatrix<> result(patches.geoDim(),unique_quad_uv.cols());
+        solution.patch(0).eval_into(unique_quad_uv,result);
+        
+        // 添加调试信息
+        gsDebugVar(result.rows());
+        gsDebugVar(result.cols());
+        
+        // 确保我们只使用前两个维度的位移
+        gsMatrix<> result_2d(2,unique_quad_uv.cols());
+        result_2d = result.topRows(2);
+        
+        // 再次添加调试信息
+        gsDebugVar(result_2d.rows());
+        gsDebugVar(result_2d.cols());
+        
+        participant.writeData(SolidMesh,DisplacementData,quad_xyIDs,result_2d);
 
         // do the coupling
         precice_dt =participant.advance(dt);

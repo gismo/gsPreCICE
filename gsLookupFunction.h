@@ -22,11 +22,11 @@ namespace gismo
 
 /**
  * @brief      Class defining a function that looks up registered data on points.
- * @usage      Combine with gsThinShellAssembler to update the stress on the solid. 
+ * @usage      Combine with gsThinShellAssembler to update the stress on the solid.
  * @details   The gsLookupFunction enables
  *            efficient data lookups based on spatial coordinates. When given a set of points and corresponding
- *            data, it creates a mapping that allows for quick retrieval of the data based on the point 
- *            coordinates. 
+ *            data, it creates a mapping that allows for quick retrieval of the data based on the point
+ *            coordinates.
  * @param     T     Number format
  */
 
@@ -70,7 +70,7 @@ public:
     m_data(data)
     {
         this->update();
-    }   
+    }
 
     /// Constructs a function pointer
     static uPtr make(   const gsMatrix<T> & points,
@@ -94,20 +94,20 @@ public:
     { return m_data.rows(); }
 
     /** \brief Evaluate the function at points \a u into \a result.
-     * This function evaluates a target function at a given set of input points and 
-     * stores the results in the provided output matrix. The mapping between input 
-     * points and corresponding results is defined by the internal mapping table \c m_map. 
-     * The function ensures that all input points are valid and registered in the table 
+     * This function evaluates a target function at a given set of input points and
+     * stores the results in the provided output matrix. The mapping between input
+     * points and corresponding results is defined by the internal mapping table \c m_map.
+     * The function ensures that all input points are valid and registered in the table
      * before performing the evaluation.
-     * 
+     *
      * \param[in] u A \c gsMatrix , where each column represents a point in the parameter domain.
-     * \param[out] result A \c gsMatrix , where each column will contain the result of 
+     * \param[out] result A \c gsMatrix , where each column will contain the result of
      * evaluating the function at the corresponding input point.
      *
      */
     virtual void eval_into(const gsMatrix<T>& u, gsMatrix<T>& result) const override
     {
-        const T tolerance = 100 * math::numeric_limits<T>::digits10(); 
+        const T tolerance = 100 * math::limits::epsilon();
 
         result.resize(this->targetDim(), u.cols());
         result.setZero();
@@ -118,6 +118,8 @@ public:
                 [&](const std::pair<gsVector<T>, index_t>& entry) {
                     return (entry.first - u.col(k)).norm() <= tolerance;
                 });
+
+            GISMO_ASSERT(std::count_if(m_map.begin(), m_map.end(),[&](const std::pair<gsVector<T>, index_t>& entry) {return (entry.first - u.col(k)).norm() <= tolerance;}) == 1,"gsLookupFunction: Multiple points within tolerance");
 
             GISMO_ASSERT(it != m_map.end(),
                 "Coordinate " + util::to_string(k) + " [" + util::to_string(u.col(k).transpose()) + "] not registered in the table within tolerance.");

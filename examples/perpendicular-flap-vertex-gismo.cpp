@@ -73,7 +73,6 @@ int main(int argc, char *argv[])
 
 
     patches.addPatch(basis.makeGeometry(give(coefs)));
-    gsDebugVar(patches.patch(0));
 
     // Create bases
     gsMultiBasis<> bases(patches);//true: poly-splines (not NURBS)
@@ -129,7 +128,7 @@ int main(int argc, char *argv[])
     std::string DisplacementData = "Displacement";
 
     // Get the quadrature nodes on the coupling interface
-    gsOptionList quadOptions = gsExprAssembler<>::defaultOptions();
+    gsOptionList quadOptions = gsAssembler<>::defaultOptions();
 
     // Get the quadrature points
     gsMatrix<> quad_uv = gsQuadrature::getAllNodes(bases.basis(0),quadOptions,couplingInterfaces); // Quadrature points in the parametric domain
@@ -152,7 +151,6 @@ int main(int argc, char *argv[])
     // get from XML ???
     gsMatrix<> quad_stress(2,quad_xy.cols());
     gsLookupFunction<real_t> g_L(quad_xy,quad_stress);
-    gsDebugVar(quad_uv.cols());
     // gsPreCICEFunction<real_t> g_C(&participant,SolidMesh,StressData,patches,patches.geoDim(),false);
     // Add all BCs
     // Coupling interface

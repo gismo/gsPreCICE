@@ -19,15 +19,15 @@ interfaces
     mesh              Fluid-Mesh;
     patches           (flap);
     locations         faceCenters;
-    
+
     readData
     (
       Displacement
     );
-    
+
     writeData
     (
-      Force
+      Stress
     );
   };
 };

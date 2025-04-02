@@ -25,7 +25,7 @@
     <receive-mesh name="Solid-Mesh" from="Solid" />
     <write-data name="Stress" mesh="Fluid-Mesh" />
     <read-data name="Displacement" mesh="Fluid-Mesh" />
-    <mapping:rbf direction="write" from="Fluid-Mesh" to="Solid-Mesh" constraint="conservative">
+    <mapping:rbf direction="write" from="Fluid-Mesh" to="Solid-Mesh" constraint="consistent">
       <basis-function:compact-polynomial-c6 support-radius="1." />
     </mapping:rbf>
     <mapping:rbf direction="read" from="Solid-Mesh" to="Fluid-Mesh" constraint="consistent">

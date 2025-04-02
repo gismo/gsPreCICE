@@ -9,15 +9,19 @@
 # Collect all files in examples/
 aux_cpp_directory(${CMAKE_CURRENT_SOURCE_DIR} FILES)
 foreach(file ${FILES})
-    add_gismo_executable(${file})
-    get_filename_component(tarname ${file} NAME_WE) # name without extension
-      if(GISMO_TEST_PRECICE)
-        set_property(TEST ${tarname} PROPERTY LABELS "${PROJECT_NAME}-examples")
-      endif()
-      set_target_properties(${tarname} PROPERTIES FOLDER "${PROJECT_NAME}")
-      add_dependencies(${PROJECT_NAME}-examples ${tarname})
-    # install the example executables (optionally)
-    install(TARGETS ${tarname} DESTINATION "${BIN_INSTALL_DIR}" COMPONENT exe OPTIONAL)
+  add_gismo_executable(${file})
+  get_filename_component(tarname ${file} NAME_WE) # name without extension
+  set_property(TEST ${tarname} PROPERTY LABELS "${PROJECT_NAME}-examples")
+  if(GISMO_BUILD_EXAMPLES)
+    set_target_properties(${tarname} PROPERTIES FOLDER "${PROJECT_NAME}")
+    add_dependencies(${PROJECT_NAME}-examples ${tarname})
+  else(GISMO_BUILD_EXAMPLES)
+    set_target_properties(${tarname} PROPERTIES
+    FOLDER "${PROJECT_NAME}"
+    EXCLUDE_FROM_ALL TRUE)
+  endif(GISMO_BUILD_EXAMPLES)
+  # install the example executables (optionally)
+  install(TARGETS ${tarname} DESTINATION "${BIN_INSTALL_DIR}" COMPONENT exe OPTIONAL)
 endforeach(file ${FILES})
 
 # Collect all files in examples/subdir/
@@ -25,15 +29,19 @@ ALLSUBDIRS(SUBDIRS ${CMAKE_CURRENT_SOURCE_DIR})
 FOREACH(subdir ${SUBDIRS})
   aux_cpp_directory(${CMAKE_CURRENT_SOURCE_DIR}/${subdir} FILES)
   foreach(file ${FILES})
-      add_gismo_executable(${file})
-      get_filename_component(tarname ${file} NAME_WE) # name without extension
-      if(GISMO_TEST_PRECICE)
-        set_property(TEST ${tarname} PROPERTY LABELS "${PROJECT_NAME}")
-      endif()
+    add_gismo_executable(${file})
+    get_filename_component(tarname ${file} NAME_WE) # name without extension
+    set_property(TEST ${tarname} PROPERTY LABELS "${PROJECT_NAME}-examples")
+    if(GISMO_BUILD_EXAMPLES)
       set_target_properties(${tarname} PROPERTIES FOLDER "${PROJECT_NAME}")
       add_dependencies(${PROJECT_NAME}-examples ${tarname})
-      # install the example executables (optionally)
-      install(TARGETS ${tarname} DESTINATION "${BIN_INSTALL_DIR}" COMPONENT exe OPTIONAL)
+    else(GISMO_BUILD_EXAMPLES)
+      set_target_properties(${tarname} PROPERTIES
+      FOLDER "${PROJECT_NAME}"
+      EXCLUDE_FROM_ALL TRUE)
+    endif(GISMO_BUILD_EXAMPLES)
+    # install the example executables (optionally)
+    install(TARGETS ${tarname} DESTINATION "${BIN_INSTALL_DIR}" COMPONENT exe OPTIONAL)
   endforeach(file ${FILES})
 ENDFOREACH()
 
@@ -44,15 +52,19 @@ FOREACH(subdir ${SUBDIRS})
   FOREACH(subsubdir ${SUBSUBDIRS})
     aux_cpp_directory(${CMAKE_CURRENT_SOURCE_DIR}/${subdir}/${subsubdir} FILES)
     foreach(file ${FILES})
-        add_gismo_executable(${file})
-        get_filename_component(tarname ${file} NAME_WE) # name without extension
-        if(GISMO_TEST_PRECICE)
-          set_property(TEST ${tarname} PROPERTY LABELS "${PROJECT_NAME}")
-        endif()
+      add_gismo_executable(${file})
+      get_filename_component(tarname ${file} NAME_WE) # name without extension
+      set_property(TEST ${tarname} PROPERTY LABELS "${PROJECT_NAME}-examples")
+      if(GISMO_BUILD_EXAMPLES)
         set_target_properties(${tarname} PROPERTIES FOLDER "${PROJECT_NAME}")
         add_dependencies(${PROJECT_NAME}-examples ${tarname})
-        # install the example executables (optionally)
-        install(TARGETS ${tarname} DESTINATION "${BIN_INSTALL_DIR}" COMPONENT exe OPTIONAL)
+      else(GISMO_BUILD_EXAMPLES)
+        set_target_properties(${tarname} PROPERTIES
+        FOLDER "${PROJECT_NAME}"
+        EXCLUDE_FROM_ALL TRUE)
+      endif(GISMO_BUILD_EXAMPLES)
+      # install the example executables (optionally)
+      install(TARGETS ${tarname} DESTINATION "${BIN_INSTALL_DIR}" COMPONENT exe OPTIONAL)
     endforeach(file ${FILES})
   ENDFOREACH()
 ENDFOREACH()

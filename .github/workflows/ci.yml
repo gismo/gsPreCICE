@@ -73,3 +73,4 @@ jobs:
           -D CTEST_USE_LAUNCHERS=OFF \
           -D CMAKE_ARGS="-DCMAKE_BUILD_TYPE=$BUILD_TYPE;-DCMAKE_CXX_STANDARD=11;-DGISMO_WITH_XDEBUG=ON;-DGISMO_BUILD_UNITTESTS=ON;-Dprecice_DIR=$precice_DIR" \
           -D GISMO_OPTIONAL="gsElasticity\\;${{ github.event.repository.name }}" -Q
+          

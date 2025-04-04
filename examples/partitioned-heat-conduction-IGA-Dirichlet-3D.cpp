@@ -1,6 +1,6 @@
-/** @file heat-equation-coupling.cpp
+/** @file partitioned-heat-conduction-IGA-Dirichlet-3D.cpp
 
-    @brief Heat equation participant for a double coupled heat equation
+    @brief 3D Heat equation participant for a double coupled heat equation
 
     This file is part of the G+Smo library.
 
@@ -8,10 +8,8 @@
     License, v. 2.0. If a copy of the MPL was not distributed with this
     file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-    Author(s): H.M. Verhelst (University of Pavia),  J.Li (TU Delft, 2023-...)
+    Author(s): J. Li (TU Delft, 2023-...)
 */
-
-
 
 #include <gismo.h>
 #include <gsPreCICE/gsPreCICE.h>
@@ -30,19 +28,17 @@ int main(int argc, char *argv[])
     short_t side = 0;
     real_t alpha = 3;
     real_t beta  = 1.2;
+    real_t gamma = 2.5;  // New coefficient for 3D exact solution
     real_t time  = 0;
     real_t k_temp = 1;
 
     std::string precice_config("../precice_config.xml");
 
-    gsCmdLine cmd("Flow over heated plate for PreCICE.");
+    gsCmdLine cmd("3D Flow over heated plate for PreCICE.");
     cmd.addString( "c", "config", "PreCICE config file", precice_config );
     cmd.addSwitch("plot", "Create a ParaView visualization file with the solution", plot);
-    // cmd.addInt("l","loadCase", "Load case: 0=constant load, 1='spring' load", loadCase);
     cmd.addInt("m","plotmod", "Modulo for plotting, i.e. if plotmod==1, plots every timestep", plotmod);
-    cmd.addInt("r","numRefine", "Number of refinements", numRefine);
-    //cmd.addSwitch("readTime", "Get the read time", get_readTime);
-    //cmd.addSwitch("writeTime", "Get the write time", get_writeTime);
+    cmd.addInt("r","numRefine", "Number of uniform refinements", numRefine);
     try { cmd.getValues(argc,argv); } catch (int rv) { return rv; }
   
     //! [Read input file]
@@ -79,18 +75,20 @@ int main(int argc, char *argv[])
      *
      * - Data:
      *   + ControlPointData:    This data is defined on the ControlPointMesh and stores the temperature of the control points
-     *   + FluzData:            This data is defined on the ForceMesh and stores pressure/forces
+     *   + FluxData:            This data is defined on the ForceMesh and stores pressure/forces
      */
 
     gsMultiPatch<> patches;
-    patches.addPatch(gsNurbsCreator<>::BSplineRectangle(0.0,0.0,1.0,1.0));
+    // Create a 3D cube, from (0,0,0) to (1,1,1)
+    patches.addPatch(gsNurbsCreator<>::BSplineCube());
+
+    
+
     for (int r =0; r < numRefine; ++r)
         patches.uniformRefine();
 
     gsMultiBasis<> basesDirichlet(patches);
     // ----------------------------------------------------------------------------------------------
-
-
 
     /// Create from patches and boundary/interface information
 
@@ -109,9 +107,10 @@ int main(int argc, char *argv[])
     std::string FluxControlPointData           = "Flux-Control-Point-Data";
 
     // Setup bounding box onto the force mesh
-    gsMatrix<> bbox(2,2);
+    gsMatrix<> bbox(3,2);  // 3D bounding box
     bbox << -1e300, 1e300, // X dimension limits
-            -1e300, 1e300; // Y dimension limits
+            -1e300, 1e300, // Y dimension limits
+            -1e300, 1e300; // Z dimension limits
     bbox.transposeInPlace();
     bbox.resize(1,bbox.rows()*bbox.cols());
     participant.setMeshAccessRegion(GeometryControlPointMesh, bbox);
@@ -120,72 +119,86 @@ int main(int argc, char *argv[])
     // ----------------------------------------------------------------------------------------------
 
     std::vector<patchSide> couplingInterface(1);
-    couplingInterface[0] = patchSide(0,boundary::west);
-    std::vector<gsGeometry<>::uPtr> boundaries(couplingInterface.size());
+    // Coupling on the east side (x=1 plane)
+    couplingInterface[0] = patchSide(0,boundary::east);
 
-
-
-
-    gsMultiBasis<> fluxBases;
     std::vector<gsGeometry<>::uPtr> couplingBoundaries(couplingInterface.size());
+    couplingBoundaries[0] = patches.patch(0).boundary(couplingInterface[0]);
 
-    couplingBoundaries[0] = patches.patch(0).boundary(couplingInterface[0].side());
-
-    // for(index_t i= 0; i < couplingInterface.size();++i)
-    // {
-    //     couplingBoundaries[i] = patches.patch(0).boundary(couplingInterface[i].side()); // Add boundary coefficients to a vector
-    //     auto& basis_temp = couplingBoundaries[i]->basis(); // Assuming this returns a pointer to gsBasis
-    //     fluxBases.addBasis(&basis_temp);
-    // }
+    gsDebugVar(couplingBoundaries[0]->basis().basis(0));
+    // Add flux knot mesh - for 3D problems, the boundary is now 2D
+    gsMatrix<> fluxKnotMatrix = knotsToMatrix(couplingBoundaries[0]->basis().basis(0));
+    gsDebugVar(fluxKnotMatrix.dim());
     
-    // Add flux knot mesh
-    gsVector<> fluxKnotMatrix = knotsToVector(couplingBoundaries[0]->basis());
-    gsDebugVar(fluxKnotMatrix);  
-    participant.addMesh(FluxKnotMesh, fluxKnotMatrix.transpose());
+    // Check if valid knot mesh was created
+    
+    // // Ensure to add to 2D mesh, not 3D mesh
+    // gsMatrix<> fluxKnotMatrix2D(1, fluxKnotMatrix.size());
+    // fluxKnotMatrix2D.row(0) = fluxKnotMatrix.transpose();
+    // gsDebugVar(fluxKnotMatrix2D);
+    
+    // Add to mesh - knot mesh is a one-dimensional curve represented in 2D space
+    participant.addMesh(FluxKnotMesh, fluxKnotMatrix);
 
 
     // Add flux control points mesh
     gsVector<index_t> fluxControlPointsIDs;
     gsMatrix<> fluxControlPoints = couplingBoundaries[0]->coefs();
-    gsDebugVar(fluxControlPoints);
-    participant.addMesh(FluxControlPointMesh,fluxControlPoints.transpose(), fluxControlPointsIDs);
+
+    // Transpose the control points matrix
+    fluxControlPoints.transposeInPlace();
+    gsDebugVar(fluxControlPoints.dim());
+   
+    
+    participant.addMesh(FluxControlPointMesh, fluxControlPoints, fluxControlPointsIDs);
 
 
     real_t precice_dt = participant.initialize();
 
-    //Get the temperature mesh from direct-access="true"direct-access="true"the API
+    //Get the temperature mesh from the API
     gsVector<index_t> geometryKnotIDs;
     gsMatrix<> geometryKnots;
     participant.getMeshVertexIDsAndCoordinates(GeometryKnotMesh,geometryKnotIDs,geometryKnots);
 
     gsDebugVar(geometryKnots);
 
-    //Get the temperature mesh from direct-access="true"direct-access="true"the API
+    //Get the temperature mesh from the API
     gsVector<index_t> geometryControlPointIDs;
     gsMatrix<> geometryControlPoint;
     participant.getMeshVertexIDsAndCoordinates(GeometryControlPointMesh,geometryControlPointIDs,geometryControlPoint);
 
+    gsDebugVar(geometryControlPoint);
     gsMatrix<> tempData(geometryControlPoint.rows(),geometryControlPoint.cols());
     tempData.setZero();
 
     gsMultiPatch<> tempMesh;
-    gsBasis<> * basis = knotMatrixToBasis<real_t>(geometryKnots.row(0)).get();
-    tempMesh.addPatch(give(basis->makeGeometry(tempData.row(0).transpose())));
+    gsBasis<> * basis = knotMatrixToBasis<real_t>(geometryKnots).get();
+    geometryControlPoint.transposeInPlace();
+    tempMesh.addPatch(give(basis->makeGeometry(geometryControlPoint)));
     gsDebugVar(tempMesh);
 
 
-    // Set external heat-flux to zero
-    gsConstantFunction<> f(beta-2-2*alpha,2);
-    gsFunctionExpr<> u_ex("1+x^2+" + std::to_string(alpha) + "*y^2 + " + std::to_string(beta) + "*" + std::to_string(time),2);
+    // Set external heat-flux to zero - Update for 3D
+    // Using Gaussian function to create a local heat source at (2,1,1)
+    real_t amplitude = 5.0; // Heat source intensity
+    real_t sigma = 0.1;     // Heat source distribution width
+    std::string sourceExpr = std::to_string(amplitude) + "*exp(-((x-2)^2+(y-1)^2+(z-1)^2)/(" + std::to_string(2*sigma*sigma) + "))";
+    gsFunctionExpr<> f(sourceExpr, 3);
+    
+    // 3D exact solution - for translated coordinate system
+    gsFunctionExpr<> u_ex("1+(z-1)^2+" + std::to_string(alpha) + "*y^2+" + std::to_string(gamma) + "*x^2 + " 
+                         + std::to_string(beta) + "*" + std::to_string(time), 3);
     
     gsBoundaryConditions<> bcInfo;
 
-    // gsPreCICEFunction<real_t> g_CD(&interface,meshName,(side==0 ? tempName : fluxName),patches,1);
     gsFunction<> * g_C = &u_ex;
-    bcInfo.addCondition(0, boundary::west, condition_type::dirichlet, g_C, 0, false, 0); //For initialization, will be changed later
+    // Set boundary conditions for 3D domain
+    bcInfo.addCondition(0, boundary::west, condition_type::dirichlet, g_C, 0, false, 0); // Coupling boundary
     bcInfo.addCondition(0, boundary::east,  condition_type::dirichlet, &u_ex);
     bcInfo.addCondition(0, boundary::north, condition_type::dirichlet, &u_ex);
     bcInfo.addCondition(0, boundary::south, condition_type::dirichlet, &u_ex);
+    bcInfo.addCondition(0, boundary::front,  condition_type::dirichlet, &u_ex);
+    bcInfo.addCondition(0, boundary::back,   condition_type::dirichlet, &u_ex);
 
     bcInfo.setGeoMap(patches);
 
@@ -205,8 +218,7 @@ int main(int argc, char *argv[])
     geometryMap G = A.getMap(patches);
 
     // Set the discretization space
-    space u = A.getSpace(basesDirichlet); // Use the Dirichlet basis function to discretize solution vector u
-    // u_h(x) = \sum_{i=1}^{N}u_i\varphi_i(x), where \varphi_i(x) is the basis function and u_i is the corresponding node values 
+    space u = A.getSpace(basesDirichlet);
 
     //----------------------RHS of the heat equation \frac{\partial u}{\partial t} = \nabla \cdot (\kappa \nabla u) + f ---------------------
     // Set the source term
@@ -241,27 +253,32 @@ int main(int argc, char *argv[])
     solver.compute(A.matrix());
     solVector_ini = solVector = solver.solve(A.rhs());
 
-    gsMatrix<> fluxData(2,fluxControlPoints.transpose().cols()), tmp2;
+    gsDebugVar(fluxControlPoints.dim());
+
+    gsMatrix<> fluxData(3,fluxControlPoints.cols()), tmp2;  // Modified to 3D vector
     // Write initial data
     if (participant.requiresWritingCheckpoint())
     {
-        for (index_t k=0; k!=fluxControlPoints.rows(); k++)
+        for (index_t k=0; k!=fluxControlPoints.cols(); k++)
         {
             gsWarn<<"Write the flux here!!!\n";
-            tmp2 = ev.eval( - jac(u_sol) * nv(G).normalized(),fluxControlPoints.transpose().col(k));
+            tmp2 = ev.eval( - jac(u_sol) * nv(G).normalized(),fluxControlPoints.col(k));
             gsInfo << "Got here\n";
             fluxData(0,k) = tmp2.at(0);
+            fluxData(1,k) = tmp2.at(1);
+            fluxData(2,k) = tmp2.at(2);  // Added Z direction
         }
         gsDebugVar(fluxData);
-        // gsDebugVar(result);
         participant.writeData(FluxControlPointMesh, FluxControlPointData, fluxControlPointsIDs, fluxData);
-
     }
     participant.readData(GeometryControlPointMesh,TemperatureData,geometryControlPointIDs,tempData);
-    tempMesh.patch(0).coefs()=tempData.row(0).transpose(); 
+
+    gsDebugVar(tempData);
+    
+    // Update mesh coefficients
+    tempMesh.patch(0).coefs() = tempData;
     gsDebugVar(tempMesh.patch(0).coefs());
     g_C = &tempMesh.patch(0); //Update the boundary condition for the east coupled boundary
-    A.initSystem();
 
     // Assemble stiffness matrix $K = \int_{\Omega} \kappa \nabla \varphi_i \cdot \nabla \varphi_j , d\Omega$    
     A.assemble( k_temp * igrad(u, G) * igrad(u, G).tr() * meas(G), u * uex * meas(G) );
@@ -273,18 +290,14 @@ int main(int argc, char *argv[])
     gsVector<> F_checkpoint = F;
     gsMatrix<> solVector_checkpoint = solVector;
 
-    gsParaviewCollection collection("solution_dirichlet");
+    // Create 3D visualization collections
+    gsParaviewCollection collection("solution_dirichlet_3D");
     collection.options().setSwitch("plotElements",true);
-    gsParaviewCollection exact_collection("exact_solution_dirichlet");
-    // 创建误差输出文件
-    std::ofstream errorFile;
-    errorFile.open("error_solution_dirichlet.txt");
-    errorFile << "# 时间步  时间   L2误差\n";
-    
-    // 创建文件比较热流和温度梯度（每个时间步只记录一个点）
-    std::ofstream fluxGradientFile;
-    fluxGradientFile.open("flux_gradient_comparison.txt");
-    fluxGradientFile << "# 时间步 时间 热流(-k*grad(T)·n) 温度梯度(grad(T)·n) 绝对误差 相对误差\n";
+
+    gsParaviewCollection exact_collection("exact_solution_dirichlet_3D");
+    exact_collection.options().setSwitch("plotElements",true);
+    gsParaviewCollection error_collection("error_solution_dirichlet_3D");
+    error_collection.options().setSwitch("plotElements",true);
   
 
     index_t timestep = 0;
@@ -292,36 +305,39 @@ int main(int argc, char *argv[])
     real_t t_checkpoint = 0;
     if (plot)
     {
-        std::string fileName = "solution_dirichlet" + util::to_string(timestep);
+        std::string fileName = "solution_dirichlet_3D" + util::to_string(timestep);
         ev.options().setSwitch("plot.elements", true);
         ev.options().setInt("plot.npts", 1000);
-        ev.writeParaview( u_sol   , G, fileName);
+        ev.writeParaview( u_sol, G, fileName);
         for (size_t p=0; p!=patches.nPatches(); p++)
         {
-          fileName = "solution_dirichlet" + util::to_string(timestep) + std::to_string(p);
+          fileName = "solution_dirichlet_3D" + util::to_string(timestep) + std::to_string(p);
           collection.addTimestep(fileName,time,".vts");
         }
 
-        fileName = "exact_solution_dirichlet" + util::to_string(timestep);
+        fileName = "exact_solution_dirichlet_3D" + util::to_string(timestep);
         ev.writeParaview( uex, G, fileName);
         for (size_t p=0; p!=patches.nPatches(); p++)
         {
-          fileName = "exact_solution_dirichlet" + util::to_string(timestep) + std::to_string(p);
+          fileName = "exact_solution_dirichlet_3D" + util::to_string(timestep) + std::to_string(p);
           exact_collection.addTimestep(fileName,time,".vts");
         }
         
-        // 计算误差并写入文件，而不是可视化它
         auto error = A.getCoeff(u_ex, G) - u_sol;
-        // 计算L2误差范数，修复integral函数调用
-        real_t L2Error = math::sqrt(ev.integral(error * error * meas(G)));
-        errorFile << timestep << "\t" << time << "\t" << L2Error << "\n";
-        errorFile.flush();
+        fileName = "error_solution_dirichlet_3D" + util::to_string(timestep);
+        ev.writeParaview(error, G, fileName);
+        for (size_t p=0; p!=patches.nPatches(); p++)
+        {
+          fileName = "error_solution_dirichlet_3D" + util::to_string(timestep) + std::to_string(p);
+          error_collection.addTimestep(fileName,time,".vts");
+        }
     }
     while (participant.isCouplingOngoing())
     {
-
-        u_ex = gsFunctionExpr<>("1+x^2+" + std::to_string(alpha) + "*y^2 + " + std::to_string(beta) + "*" + std::to_string(time),2);
-        u.setup(bcInfo, dirichlet::l2Projection, 0); // NOTE:
+        // Update 3D exact solution
+        u_ex = gsFunctionExpr<>("1+(z-1)^2+" + std::to_string(alpha) + "*y^2+" + std::to_string(gamma) + "*x^2 + " 
+                               + std::to_string(beta) + "*" + std::to_string(time), 3);
+        u.setup(bcInfo, dirichlet::l2Projection, 0);
         A.initSystem();
         A.assemble( k_temp * igrad(u, G) * igrad(u, G).tr() * meas(G), u * ff * meas(G) );
         K = A.matrix();
@@ -343,57 +359,26 @@ int main(int argc, char *argv[])
         gsInfo << "Solving timestep " << timestep*dt << "...";
         solVector = solver.compute(M + dt*K).solve(F);
         gsInfo<<"Finished\n";
-        // write heat fluxes to interface
-        // gsMatrix<> result(2,fluxControlPoints.transpose().cols()), tmp;
 
-        for (index_t k=0; k!=fluxControlPoints.transpose().cols(); k++)
+        // Calculate and write 3D heat flux
+        for (index_t k=0; k!=fluxControlPoints.cols(); k++)
         {
             gsWarn<<"Write the flux here!!!\n";
-            //Calculate the heat flux $q=-k\nabla u$, here we use jac(u_sol) to calculate $\nabla u$
-            // Use normal vector to calculate the flux in the normal direction
-            tmp2 = ev.eval(-jac(u_sol) * nv(G).normalized(),fluxControlPoints.transpose().col(k));
+            tmp2 = ev.eval(-jac(u_sol) * nv(G).normalized(),fluxControlPoints.col(k));
             gsInfo << "Got here\n";
             fluxData(0,k) = tmp2.at(0);
-            
-            // 只对第一个边界点(k=0)计算并比较温度梯度和热流
-            if (k == 0) 
-            {
-                // 计算点处的温度梯度
-                gsMatrix<> tempGrad = ev.eval(jac(u_sol),fluxControlPoints.transpose().col(k));
-                // 计算法向梯度
-                gsMatrix<> normalVec = ev.eval(nv(G).normalized(),fluxControlPoints.transpose().col(k));
-                gsMatrix<> gradDotNormalMatrix = tempGrad * normalVec;
-                real_t gradDotNormal = gradDotNormalMatrix(0,0);
-                real_t heatFlux = -k_temp * gradDotNormal;
-                
-                // 比较计算的热流和通过-k*grad(T)得到的热流
-                real_t absoluteError = std::abs(tmp2.at(0) - heatFlux);
-                real_t relativeError = absoluteError / (std::abs(heatFlux) > 1e-10 ? std::abs(heatFlux) : 1.0);
-                
-                // 输出到文件
-                fluxGradientFile << timestep << "\t" 
-                                << time << "\t"
-                                << tmp2.at(0) << "\t" 
-                                << gradDotNormal << "\t"
-                                << absoluteError << "\t"
-                                << relativeError << "\n";
-                fluxGradientFile.flush();
-                
-                gsInfo << "时间步 " << timestep << "，时间 " << time 
-                       << "，热流 = " << tmp2.at(0) 
-                       << "，温度梯度 = " << gradDotNormal
-                       << "，相对误差 = " << relativeError * 100 << "%\n";
-            }
+            fluxData(1,k) = tmp2.at(1);
+            fluxData(2,k) = tmp2.at(2);  // Add Z direction
         }
-        
+
         participant.writeData(FluxControlPointMesh, FluxControlPointData, fluxControlPointsIDs, fluxData);
         participant.readData(GeometryControlPointMesh,TemperatureData,geometryControlPointIDs,tempData);
         gsDebugVar(tempData);
-        tempMesh.patch(0).coefs()=tempData.row(0).transpose(); 
-        gsDebugVar(tempData.row(0).transpose());
-        gsDebugVar(tempMesh.patch(0).coefs());
+        
+        // Update mesh coefficients
+        tempMesh.patch(0).coefs() = tempData;
+
         g_C = &tempMesh.patch(0);
-        // g_C = &tempMesh.patch(0); //Update the boundary condition for the east coupled boundary
 
         // do the coupling
         precice_dt = participant.advance(dt);
@@ -415,30 +400,32 @@ int main(int argc, char *argv[])
         {
             if (timestep % plotmod==0 && plot)
             {
-                std::string fileName = "solution_dirichlet" + util::to_string(timestep);
+                std::string fileName = "solution_dirichlet_3D" + util::to_string(timestep);
                 ev.options().setSwitch("plot.elements", true);
                 ev.options().setInt("plot.npts", 1000);
-                ev.writeParaview( u_sol   , G, fileName);
+                ev.writeParaview( u_sol, G, fileName);
                 for (size_t p=0; p!=patches.nPatches(); p++)
                 {
-                  fileName = "solution_dirichlet" + util::to_string(timestep) + std::to_string(p);
+                  fileName = "solution_dirichlet_3D" + util::to_string(timestep) + std::to_string(p);
                   collection.addTimestep(fileName,time,".vts");
                 }
 
-                fileName = "exact_solution_dirichlet" + util::to_string(timestep);
+                fileName = "exact_solution_dirichlet_3D" + util::to_string(timestep);
                 ev.writeParaview( uex, G, fileName);
                 for (size_t p=0; p!=patches.nPatches(); p++)
                 {
-                  fileName = "exact_solution_dirichlet" + util::to_string(timestep) + std::to_string(p);
+                  fileName = "exact_solution_dirichlet_3D" + util::to_string(timestep) + std::to_string(p);
                   exact_collection.addTimestep(fileName,time,".vts");
                 }
                 
-                // 计算误差并写入文件，而不是可视化它
                 auto error = A.getCoeff(u_ex, G) - u_sol;
-                // 计算L2误差范数，修复integral函数调用
-                real_t L2Error = math::sqrt(ev.integral(error * error * meas(G)));
-                errorFile << timestep << "\t" << time << "\t" << L2Error << "\n";
-                errorFile.flush();
+                fileName = "error_solution_dirichlet_3D" + util::to_string(timestep);
+                ev.writeParaview(error, G, fileName);
+                for (size_t p=0; p!=patches.nPatches(); p++)
+                {
+                  fileName = "error_solution_dirichlet_3D" + util::to_string(timestep) + std::to_string(p);
+                  error_collection.addTimestep(fileName,time,".vts");
+                }
             }
         }
     }
@@ -447,13 +434,7 @@ int main(int argc, char *argv[])
     {
         collection.save();
         exact_collection.save();
-        // error_collection.save();
+        error_collection.save();
     }
-    
-    // 关闭误差文件
-    errorFile.close();
-    // 关闭热流-梯度比较文件
-    fluxGradientFile.close();
-    
     return  EXIT_SUCCESS;
-}
+} 

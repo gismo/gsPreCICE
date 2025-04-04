@@ -22,7 +22,7 @@
     <use-data name="Geometry-Knot-Data" />
   </mesh>
   
-  <mesh name="Geometry-Control-Point-Mesh" dimensions="2">
+  <mesh name="Geometry-Control-Point-Mesh" dimensions="3">
       <use-data name="Temperature-Data" />
   </mesh>
   
@@ -30,7 +30,7 @@
       <use-data name="Flux-Knot-Mesh-Data" />
   </mesh>
   
-  <mesh name="Flux-Control-Point-Mesh" dimensions="2">
+  <mesh name="Flux-Control-Point-Mesh" dimensions="3">
       <use-data name="Flux-Control-Point-Data" />
   </mesh>
   
@@ -55,8 +55,8 @@
 <m2n:sockets acceptor="Dirichlet" connector="Neumann" exchange-directory="../"/>
     <coupling-scheme:parallel-implicit>
     <participants first="Dirichlet" second="Neumann"/>
-    <time-window-size value="0.01" />
-    <max-time value="1" />
+    <time-window-size value="0.1" />
+    <max-time value="5" />  
 <exchange data="Temperature-Data" mesh="Geometry-Control-Point-Mesh" from="Neumann" to="Dirichlet"/>
 <exchange data="Flux-Control-Point-Data" mesh="Flux-Control-Point-Mesh" from="Dirichlet" to="Neumann"/>
     <max-iterations value="100" />

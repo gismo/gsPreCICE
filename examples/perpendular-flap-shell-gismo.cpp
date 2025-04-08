@@ -17,7 +17,6 @@
 #include <gsPreCICE/gsLookupFunction.h>
 
 #include <gsAssembler/gsExprEvaluator.h>
-// #include <gsPreCICE/gsPreCICEVectorFunction.h>
 
 #include <gsElasticity/gsMassAssembler.h>
 #include <gsElasticity/gsElasticityAssembler.h>

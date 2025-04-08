@@ -25,9 +25,6 @@
 #ifdef gsKLShell_ENABLED
 #include <gsKLShell/src/getMaterialMatrix.h>
 #include <gsKLShell/src/gsThinShellAssembler.h>
-#include <gsKLShell/src/gsMaterialMatrixContainer.h>
-#include <gsKLShell/src/gsMaterialMatrixEval.h>
-#include <gsKLShell/src/gsMaterialMatrixIntegrate.h>
 #endif
 
 #ifdef gsStructuralAnalysis_ENABLED

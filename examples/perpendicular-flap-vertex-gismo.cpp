@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
 {
     //! [Parse command line]
     bool plot = false;
-    index_t plotmod = 1;
+    index_t plotmod = 10;
     index_t numRefine  = 0;
     index_t numElevate = 0;
     std::string precice_config;
@@ -350,18 +350,21 @@ int main(int argc, char *argv[])
             timestep++;
 
             gsField<> solField(patches,solution);
-            if (timestep % plotmod==0 && plot) // Generate Paraview output for visualization
+            if (timestep % plotmod==0) // Generate Paraview output for visualization
             {
-                // solution.patch(0).coefs() -= patches.patch(0).coefs();// assuming 1 patch here
-                std::string fileName = "./output/solution" + util::to_string(timestep);
-                gsWriteParaview<>(solField, fileName, 500);
-                fileName = "solution" + util::to_string(timestep) + "0";
-                collection.addTimestep(fileName,time,".vts");
+                if (plot)
+                {
+                    // solution.patch(0).coefs() -= patches.patch(0).coefs();// assuming 1 patch here
+                    std::string fileName = "./output/solution" + util::to_string(timestep);
+                    gsWriteParaview<>(solField, fileName, 500);
+                    fileName = "solution" + util::to_string(timestep) + "0";
+                    collection.addTimestep(fileName,time,".vts");
+                }
+                
+                solution.patch(0).eval_into(points,pointDataMatrix);
+                otherDataMatrix<<time;
+                writer.add(pointDataMatrix,otherDataMatrix);
             }
-
-            solution.patch(0).eval_into(points,pointDataMatrix);
-            otherDataMatrix<<time;
-            writer.add(pointDataMatrix,otherDataMatrix);
         }
     }
 

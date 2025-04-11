@@ -289,8 +289,6 @@ int main(int argc, char *argv[])
     // Question: how to map the force information onto quad points as a surface force for gsThinShellAssembler?
     gsMatrix<> quadPointsData(quad_shell_xy.rows(), quad_shell_xy.cols()); // Ensure the dimensions match
     quadPointsData.setZero();
-
-    gsDebugVar(quad_shell_xy);
     gsLookupFunction<real_t> surfForce(quad_shell_xy, quadPointsData);
 
     // gsMatrix<> displacementData = gsMatrix<>::Zero(3, comPt.rows());

@@ -430,17 +430,6 @@ int main(int argc, char *argv[])
     gsMatrix<> N_shell(3, quad_xy.rows());
 
     gsMatrix<> T_shell = thickness_3d.eval(quad_uv);
-
-    // gsMatrix<> deformed_thickness(greville.cols(), 3);
-
-    // for (index_t k = 0; k != quad_uv.rows(); k++)
-    // {
-    //     N_shell.row(k) = ev.eval(sn(G_shell).normalized(), quad_uv.row(k));
-    //     deformed_thickness.row(k) = N_shell.row(k) * T_shell(0, k);
-    // }
-
-    gsDebugVar("Got here 3");
-
     gsMatrix<> ForceDataShell(quad_shell_uv.rows(), 3);
     gsMatrix<> deformed_thickness(greville.cols(), 3);
     gsMatrix<> deformedcoefs3D(3 * greville.cols(), 3);

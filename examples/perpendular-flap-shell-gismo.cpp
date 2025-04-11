@@ -290,11 +290,6 @@ int main(int argc, char *argv[])
     quadPointsData.setZero();
     gsLookupFunction<real_t> surfForce(quad_shell_xy, quadPointsData);
 
-    // gsMatrix<> displacementData = gsMatrix<>::Zero(3, comPt.rows());
-    // displacementData.setRandom();
-
- 
-
     gsMaterialMatrixBase<real_t>::uPtr materialMatrix;
     options.addInt("Material","Material model: (0): SvK | (1): NH | (2): NH_ext | (3): MR | (4): Ogden",0);
     options.addInt("Implementation","Implementation: (0): Composites | (1): Analytical | (2): Generalized | (3): Spectral",1);

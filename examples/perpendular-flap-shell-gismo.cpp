@@ -415,11 +415,6 @@ int main(int argc, char *argv[])
 
     }
 
-    // gsMatrix<> points(2, 1);
-    // points.col(0) << 0.5, 1;
-
-    // gsStructuralAnalysisOutput<real_t> writer("./output/pointData.csv", points);
-    // writer.init({"x", "y", "z"}, {"time"}); // point1 - x, point1 - y, point1 - z, time
 
     gsMatrix<> pointDataMatrix;
     gsMatrix<> otherDataMatrix(1, 1);

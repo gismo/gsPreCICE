@@ -449,24 +449,6 @@ int main(int argc, char *argv[])
 
             timestep_checkpoint = timestep;
         }
-
-        // assembler.assemble();
-        // F = assembler.rhs();
-
-        gsDebugVar(bcInfo);
-
-        participant.readData(SolidMesh, StressData, quadPointIDs, ForceData);
-
-
-
-        // Is this really an average? (maybe need to consider normal vector)
-        gsDebugVar(ForceData.rows());
-        gsDebugVar(ForceData.cols());
-        gsDebugVar(N.rows());
-        gsDebugVar(N.cols());
-        gsDebugVar(quadPointsData.rows());
-        gsDebugVar(quadPointsData.cols());
-        gsDebugVar(quad_uv.cols());
         
         for (index_t i = 0; i < quadPointsData.cols(); ++i)
         {

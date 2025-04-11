@@ -39,7 +39,6 @@
 #endif
 
 using namespace gismo;
-const double PI = 3.14159265;
 int main(int argc, char *argv[])
 {
     //! [Parse command line]

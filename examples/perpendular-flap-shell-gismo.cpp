@@ -90,7 +90,6 @@ int main(int argc, char *argv[])
               << "----------------------\n\n";
 
     // 1. construction of a knot vector for each direction
-    // 1. Construction of knot vectors for each direction
     gsKnotVector<> kv1(0, 1, n - degree - 1, degree + 1);
     gsKnotVector<> kv2(0, 1, m - degree - 1, degree + 1);
 

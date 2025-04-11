@@ -79,10 +79,6 @@ int main(int argc, char *argv[])
 
     //! [Read input file]
     GISMO_ASSERT(gsFileManager::fileExists(precice_config),"No precice config file has been defined");
-
-
-
-
      // Adjust values to the minimum required
     degree = math::max( (index_t)(0), degree    );
     n      = math::max(n, degree + 1);

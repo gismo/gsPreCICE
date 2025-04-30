@@ -1,0 +1,36 @@
+{
+    "participant": {
+        "name": "Solver1",
+        "preciceConfigFile": "precice-config.xml"
+    },
+    "meshes": [
+        {
+            "name": "Mesh1",
+            "type": "structured",
+            "dim": 2,
+            "nx": 10, 
+            "ny": 10,
+            "x-range": [0.0, 1.0],
+            "y-range": [0.0, 1.0]
+        }
+    ],
+    "writeData": [
+        {
+            "mesh": "Mesh1",
+            "name": "Temperature",
+            "dataType": "timeDependent",
+            "coords": {
+                "type": "mesh"
+            }
+        }
+    ],
+    "readData": [
+        {
+            "mesh": "Mesh2",
+            "name": "Force",
+            "coords": {
+                "type": "mesh"
+            }
+        }
+    ]
+}

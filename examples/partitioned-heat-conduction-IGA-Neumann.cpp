@@ -4,15 +4,6 @@
 /// Author(s): H.M. Verhelst (University of Pavia),  J.Li (TU Delft, 2023-...)
 ///
 #include <gismo.h>
-#include <gsElasticity/gsElasticityAssembler.h>
-#include <gsElasticity/gsElTimeIntegrator.h>
-#include <gsElasticity/gsNsAssembler.h>
-#include <gsElasticity/gsNsTimeIntegrator.h>
-#include <gsElasticity/gsMassAssembler.h>
-#include <gsElasticity/gsALE.h>
-#include <gsElasticity/gsPartitionedFSI.h>
-#include <gsElasticity/gsWriteParaviewMultiPhysics.h>
-#include <gsElasticity/gsGeoUtils.h>
 
 #include <gsPreCICE/gsPreCICE.h>
 #include <gsPreCICE/gsPreCICEUtils.h>

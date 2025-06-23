@@ -1,0 +1,55 @@
+{
+  "participant": {
+    "name": "Fluid",
+    "preciceConfigFile": "precice-config.xml"
+  },
+  "geometry": {
+    "type": "rectangle",
+    "bounds": {
+      "x0": 0.0,
+      "y0": 0.0,
+      "x1": 0.5,
+      "y1": 1.0
+    }
+  },
+  "fluidMesh": {
+    "numPoints": 100
+  },
+  "meshes": [
+    {
+      "name": "Solid-Mesh",
+      "type": "points"
+    }
+  ],
+  "readData": [
+    {
+      "mesh": "Solid-Mesh", 
+      "name": "Displacement"
+    }
+  ],
+  "writeData": [
+    {
+      "mesh": "Solid-Mesh",
+      "name": "Stress"
+    }
+  ],
+  "loading": {
+    "type": "constant",
+    "magnitude": -5e3,
+    "timeFunction": 1.0
+  },
+  "output": {
+    "directory": "./output",
+    "plot": true,
+    "plotmod": 1,
+    "pointData": {
+      "enabled": true,
+      "filename": "./output/fluidPointData.csv",
+      "points": {
+        "rows": 1,
+        "cols": 3,
+        "data": [0.25, 0.5, 0.0]
+      }
+    }
+  }
+} 

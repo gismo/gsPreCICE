@@ -84,6 +84,10 @@ public:
                         error = "Custom mesh missing 'points' property";
                         return false;
                     }
+                } else if (type == "quadrature")
+                {
+                    // Quadrature meshes are valid and require no additional properties
+                    // They will be generated automatically from the geometry and quadrature options
                 } else
                 {
                     error = "Unknown mesh type: " + type;

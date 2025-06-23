@@ -1,0 +1,119 @@
+{
+  "participant": {
+    "name": "Solid",
+    "preciceConfigFile": "precice-config.xml"
+  },
+  "geometry": {
+    "type": "bspline",
+    "dimension": 2,
+    "knotVectors": [
+      {
+        "knots": [0.0, 1.0],
+        "multiplicities": [2, 2]
+      },
+      {
+        "knots": [0.0, 1.0],
+        "numElements": 5,
+        "multiplicities": [2]
+      }
+    ],
+    "controlPoints": {
+      "coordinates": {
+        "rows": 14,
+        "cols": 2,
+        "data": [
+          0.0, 0.0,
+          0.0, 0.2,
+          0.0, 0.4,
+          0.0, 0.6,
+          0.0, 0.8,
+          0.0, 1.0,
+          0.0, 1.2,
+          0.1, 0.0,
+          0.1, 0.2,
+          0.1, 0.4,
+          0.1, 0.6,
+          0.1, 0.8,
+          0.1, 1.0,
+          0.1, 1.2
+        ]
+      }
+    }
+  },
+  "refinement": {
+    "numElevate": 0,
+    "numRefine": 2
+  },
+  "material": {
+    "density": 3000.0,
+    "youngsModulus": 4.0e6,
+    "poissonsRatio": 0.3
+  },
+  "quadrature": {
+    "quA": 2.0,
+    "quB": 1,
+    "quRule": 1,
+    "overInt": false,
+    "quAb": 2.0,
+    "quBb": 1
+  },
+  "couplingInterfaces": [
+    {
+      "patch": 0,
+      "boundary": "east"
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Solid-Mesh",
+      "type": "quadrature"
+    }
+  ],
+  "boundaryConditions": [
+    {
+      "patch": 0,
+      "boundary": "west",
+      "type": "dirichlet",
+      "component": 0,
+      "value": 0.0
+    },
+    {
+      "patch": 0,
+      "boundary": "west", 
+      "type": "dirichlet",
+      "component": 1,
+      "value": 0.0
+    }
+  ],
+  "readData": [
+    {
+      "mesh": "Solid-Mesh",
+      "name": "Stress"
+    }
+  ],
+  "writeData": [
+    {
+      "mesh": "Solid-Mesh",
+      "name": "Displacement"
+    }
+  ],
+  "solver": {
+    "method": "newmark",
+    "nonlinear": false,
+    "tolerance": 1e-6,
+    "verbose": true
+  },
+  "output": {
+    "plot": true,
+    "plotmod": 10,
+    "pointData": {
+      "enabled": false,
+      "filename": "point_data.csv",
+      "points": {
+        "rows": 2,
+        "cols": 2,
+        "data": [1.0, 1.0, 0.5, 0.5]
+      }
+    }
+  }
+} 

@@ -260,11 +260,18 @@ int main(int argc, char* argv[])
                 
                 std::string fileName = dirname + "/fluid_solution" + util::to_string(timestep);
                 
-                // Write point cloud with stress data
-                gsWriteParaviewPoints(currentMeshPoints, stressMagnitude, fileName);
-                
-                fileName = "fluid_solution" + util::to_string(timestep) + "0";
-                collection.addTimestep(fileName, t, ".vts");
+                try {
+                    // Write point cloud with stress data using correct function signature
+                    gsMatrix<> X = currentMeshPoints.row(0);
+                    gsMatrix<> Y = currentMeshPoints.row(1);
+                    gsMatrix<> Z = currentMeshPoints.row(2);
+                    gsWriteParaviewPoints(X, Y, Z, stressMagnitude, fileName);
+                    
+                    fileName = "fluid_solution" + util::to_string(timestep) + "0";
+                    collection.addTimestep(fileName, t, ".vts");
+                } catch (const std::exception& e) {
+                    gsWarn << "Error writing fluid visualization at timestep " << timestep << ": " << e.what() << "\n";
+                }
             }
 
             // Write point data
@@ -280,14 +287,22 @@ int main(int argc, char* argv[])
     participant.finalize();
     gsInfo << "Coupling finalized\n";
 
+    // Save visualization collection
     if (plot) {
-        collection.save();
+        try {
+            collection.save();
+            gsInfo << "Saved fluid visualization collection\n";
+        } catch (const std::exception& e) {
+            gsWarn << "Error saving visualization collection: " << e.what() << "\n";
+        }
     }
 
     // Clean up
     if (csvFile.is_open()) {
         csvFile.close();
+        gsInfo << "CSV file closed\n";
     }
 
+    gsInfo << "Fluid participant completed successfully\n";
     return EXIT_SUCCESS;
 } 

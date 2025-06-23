@@ -72,6 +72,89 @@ gsMatrix<> safeGetMatrix(const json& j)
     }
 }
 
+// Helper function to apply quadrature options from JSON configuration
+void applyQuadratureOptions(gsOptionList& quadOptions, const json& quadConfig, const std::string& source) {
+    if (quadConfig.contains("quA")) {
+        real_t quA = quadConfig["quA"].get<real_t>();
+        quadOptions.setReal("quA", quA);
+    }
+    
+    if (quadConfig.contains("quB")) {
+        index_t quB = quadConfig["quB"].get<index_t>();
+        quadOptions.setInt("quB", quB);
+    }
+    
+    if (quadConfig.contains("quRule")) {
+        index_t quRule = quadConfig["quRule"].get<index_t>();
+        quadOptions.setInt("quRule", quRule);
+    }
+    
+    if (quadConfig.contains("overInt")) {
+        bool overInt = quadConfig["overInt"].get<bool>();
+        quadOptions.setSwitch("overInt", overInt);
+    }
+    
+    if (quadConfig.contains("quAb")) {
+        real_t quAb = quadConfig["quAb"].get<real_t>();
+        quadOptions.setReal("quAb", quAb);
+    }
+    
+    if (quadConfig.contains("quBb")) {
+        index_t quBb = quadConfig["quBb"].get<index_t>();
+        quadOptions.setInt("quBb", quBb);
+    }
+    
+    gsInfo << "Quadrature options loaded from " << source << ":\n";
+    gsInfo << "  quA: " << quadOptions.getReal("quA") << "\n";
+    gsInfo << "  quB: " << quadOptions.getInt("quB") << "\n";
+    gsInfo << "  quRule: " << quadOptions.getInt("quRule") << "\n";
+    gsInfo << "  overInt: " << quadOptions.getSwitch("overInt") << "\n";
+}
+
+// Helper function to create quadrature options from JSON
+gsOptionList createQuadratureOptions(const json& config, const std::string& quadratureFile = "") {
+    gsOptionList quadOptions = gsExprAssembler<>::defaultOptions();
+    
+    // First try to load from separate quadrature file if specified
+    if (!quadratureFile.empty()) {
+        std::ifstream quadFile(quadratureFile);
+        if (quadFile.good()) {
+            quadFile.close();
+            gsJSON quadConfig(quadratureFile);
+            
+            if (quadConfig.contains("quadrature")) {
+                applyQuadratureOptions(quadOptions, quadConfig["quadrature"], "separate file: " + quadratureFile);
+                return quadOptions;
+            } else {
+                gsWarn << "Quadrature file " << quadratureFile << " does not contain 'quadrature' section\n";
+            }
+        } else {
+            gsWarn << "Quadrature file not found: " << quadratureFile << "\n";
+        }
+    }
+    
+    // Fall back to main configuration file
+    if (config.contains("quadrature")) {
+        applyQuadratureOptions(quadOptions, config["quadrature"], "main configuration");
+    } else {
+        gsInfo << "No quadrature options found, using defaults\n";
+    }
+    
+    return quadOptions;
+}
+
+// Helper function to convert boundary string to enum
+boundary::side getBoundaryFromString(const std::string& str) {
+    if (str == "north") return boundary::north;
+    if (str == "south") return boundary::south;
+    if (str == "east") return boundary::east;
+    if (str == "west") return boundary::west;
+    if (str == "front") return boundary::front;
+    if (str == "back") return boundary::back;
+    gsWarn << "Unknown boundary: " << str << "\n";
+    return boundary::north; // default
+}
+
 // Create geometry from JSON config
 gsMultiPatch<> createGeometry(const nlohmann::json& geomConfig) {
     gsMultiPatch<> patches;
@@ -95,6 +178,7 @@ int main(int argc, char* argv[])
 {
     // Process command line options
     std::string jsonFile = "vertical-beam-solid-config.json";
+    std::string quadratureFile = "";
     
     // Simple command line argument parsing
     for (int i = 1; i < argc; i++) {
@@ -103,16 +187,23 @@ int main(int argc, char* argv[])
         if ((arg == "-j" || arg == "--json") && i + 1 < argc) {
             jsonFile = argv[++i];
         }
+        else if ((arg == "-q" || arg == "--quadrature") && i + 1 < argc) {
+            quadratureFile = argv[++i];
+        }
         else if (arg == "--help" || arg == "-h") {
             gsInfo << "Usage: " << argv[0] << " [options]\n"
                    << "Options:\n"
                    << "  -j, --json FILE      JSON configuration file\n"
+                   << "  -q, --quadrature FILE JSON quadrature options file (optional)\n"
                    << "  -h, --help           Show this help message\n";
             return EXIT_SUCCESS;
         }
     }
     
     gsInfo << "Using configuration file: " << jsonFile << "\n";
+    if (!quadratureFile.empty()) {
+        gsInfo << "Using quadrature options file: " << quadratureFile << "\n";
+    }
 
     // Check if files exist
     std::ifstream configCheck(jsonFile);
@@ -162,16 +253,42 @@ int main(int argc, char* argv[])
     real_t nu = config["material"]["poissonsRatio"].get<real_t>();
     real_t thickness = config["material"]["thickness"].get<real_t>();
 
+    // Set up coupling interfaces from JSON
+    std::vector<patchSide> couplingInterfaces;
+    if (config.contains("couplingInterfaces")) {
+        for (const auto& interfaceConfig : config["couplingInterfaces"]) {
+            index_t patch = interfaceConfig["patch"].get<index_t>();
+            boundary::side side = getBoundaryFromString(interfaceConfig["boundary"].get<std::string>());
+            couplingInterfaces.push_back(patchSide(patch, side));
+            gsInfo << "Added coupling interface: patch " << patch << ", boundary " << interfaceConfig["boundary"].get<std::string>() << "\n";
+        }
+    } else {
+        // Default: assume all boundaries are coupling interfaces (for backward compatibility)
+        gsWarn << "No coupling interfaces specified, using default behavior\n";
+    }
+
     // Initialize preCICE
     gsPreCICE<real_t> participant(participantName, preciceConfig);
 
-    // Set up mesh
-    gsOptionList quadOptions = gsExprAssembler<>::defaultOptions();
-    gsMatrix<> quadPoints = gsQuadrature::getAllNodes(bases.basis(0), quadOptions);
+    // Set up mesh with JSON-configured quadrature options
+    gsOptionList quadOptions = createQuadratureOptions(config, quadratureFile);
+    gsMatrix<> quadPoints;
+    
+    if (!couplingInterfaces.empty()) {
+        // Use specified coupling interfaces
+        quadPoints = gsQuadrature::getAllNodes(bases.basis(0), quadOptions, couplingInterfaces);
+        gsInfo << "Generated quadrature points on specified coupling interfaces\n";
+    } else {
+        // Default: use all boundaries as coupling interfaces
+        quadPoints = gsQuadrature::getAllNodes(bases.basis(0), quadOptions);
+    }
+    
     gsVector<index_t> quadPointIDs;
     participant.addMesh("Solid-Mesh", quadPoints, quadPointIDs);
     gsMatrix<> quadPointsData(3, quadPoints.cols());
     quadPointsData.setZero();
+    
+    gsInfo << "Created mesh 'Solid-Mesh' with " << quadPoints.cols() << " quadrature points\n";
 
     // Initialize the coupling
     real_t precice_dt = participant.initialize();
@@ -184,11 +301,7 @@ int main(int argc, char* argv[])
         std::string boundaryStr = bcConfig["boundary"].get<std::string>();
         std::string type = bcConfig["type"].get<std::string>();
         
-        boundary::side side;
-        if (boundaryStr == "south") side = boundary::south;
-        else if (boundaryStr == "north") side = boundary::north;
-        else if (boundaryStr == "east") side = boundary::east;
-        else if (boundaryStr == "west") side = boundary::west;
+        boundary::side side = getBoundaryFromString(boundaryStr);
         
         if (type == "dirichlet") {
             bcInfo.addCondition(patch, side, condition_type::dirichlet, nullptr, -1);
@@ -322,8 +435,22 @@ int main(int argc, char* argv[])
             timestep_checkpoint = timestep;
         }
 
-        // Read 3D stress data directly
-        participant.readData("Solid-Mesh", "Stress", quadPointIDs, quadPointsData);
+        // Read stress data from coupling (using JSON configuration)
+        if (config.contains("readData")) {
+            for (const auto& readData : config["readData"]) {
+                std::string meshName = readData["mesh"].get<std::string>();
+                std::string dataName = readData["name"].get<std::string>();
+                
+                if (meshName == "Solid-Mesh" && dataName == "Stress") {
+                    participant.readData(meshName, dataName, quadPointIDs, quadPointsData);
+                    gsInfo << "Read data: " << dataName << " from mesh: " << meshName << "\n";
+                }
+            }
+        } else {
+            // Backward compatibility: use hardcoded values
+            participant.readData("Solid-Mesh", "Stress", quadPointIDs, quadPointsData);
+        }
+        
         assembler.assemble();
         F = assembler.rhs();
 
@@ -333,12 +460,26 @@ int main(int argc, char* argv[])
         // potentially adjust non-matching timestep sizes
         dt = std::min(dt, precice_dt);
 
-        // Construct solution from current displacement
+        // Write displacement data to coupling (using JSON configuration)
         gsVector<> displacements = U;
         solution = assembler.constructDisplacement(displacements);
         gsMatrix<> quadPointsDisplacements = solution.patch(0).eval(quadPoints);
-        // preCICE expects 3D data, write full displacement vector
-        participant.writeData("Solid-Mesh", "Displacement", quadPointIDs, quadPointsDisplacements);
+        
+        if (config.contains("writeData")) {
+            for (const auto& writeData : config["writeData"]) {
+                std::string meshName = writeData["mesh"].get<std::string>();
+                std::string dataName = writeData["name"].get<std::string>();
+                
+                if (meshName == "Solid-Mesh" && dataName == "Displacement") {
+                    // preCICE expects 3D data, write full displacement vector
+                    participant.writeData(meshName, dataName, quadPointIDs, quadPointsDisplacements);
+                    gsInfo << "Wrote data: " << dataName << " to mesh: " << meshName << "\n";
+                }
+            }
+        } else {
+            // Backward compatibility: use hardcoded values
+            participant.writeData("Solid-Mesh", "Displacement", quadPointIDs, quadPointsDisplacements);
+        }
 
         // do the coupling
         precice_dt = participant.advance(dt);

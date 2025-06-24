@@ -1,6 +1,6 @@
 /** @file gsLookupFunction.h
 
-    @brief Provides declaration of gsLookupFunction class.
+    @brief Provides declaration of gsLookupFunction class for multipatch support.
 
     This file is part of the G+Smo library.
 
@@ -8,17 +8,148 @@
     License, v. 2.0. If a copy of the MPL was not distributed with this
     file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-    Author(s): H.M. Verhelst (TU Delft, 2019-2024), J.Li (TU Delft, 2023 - ...)
+    Author(s): J.Li (TU Delft, 2023), H. Verhelst
     */
 
 #pragma once
 
-#include <gsCore/gsLinearAlgebra.h>
-#include <gsCore/gsGeometry.h>
-#include <gsCore/gsMath.h>
+// #include <gsPreCICE/gsLookupFunction.h>
+#include <gsCore/gsMultiPatch.h>
+
 
 namespace gismo
 {
+template<class T>
+class gsLookupFunctionSingle;
+/**
+ * @brief      Multipatch lookup function evaluator
+ * @details    This class enables lookup functions on multipatch geometries where each patch
+ *             can have its own lookup function mapping points to data values
+ * @param      T     Number format
+ */
+template <class T>
+class gsLookupFunction : public gsFunctionSet<T>
+{
+public:
+    typedef memory::shared_ptr< gsLookupFunction > Ptr;
+    typedef memory::unique_ptr< gsLookupFunction > uPtr;
+    typedef gsLookupFunctionSingle<T> Piece_t;
+
+    typedef std::vector<Piece_t> Container;
+
+    // Constructor
+    gsLookupFunction(size_t nPatches = 0)
+    : m_container()
+    {
+        m_container.reserve(nPatches);
+    }
+    /// Constructor with points and data for a single patch
+    gsLookupFunction(const gsMatrix<T> & points,
+                               const gsMatrix<T> & data)
+    : gsLookupFunction(1)
+    {
+        this->add(points, data);
+    }
+
+    /// Destructor
+    ~gsLookupFunction()
+    {
+    }
+
+    GISMO_CLONE_FUNCTION(gsLookupFunction)
+
+    /// Number of pieces
+    index_t nPieces() const override
+    { return m_container.size(); }
+
+    /// Access a piece
+    const gsFunction<T> & piece(const index_t k) const override
+    {
+        GISMO_ASSERT(k < m_container.size(), "Piece index out of bounds");
+        return m_container[k];
+    }
+
+    /// See \a gsFunctionSet
+    index_t size() const override
+    { return m_container.size(); }
+
+    /// Domain dimension
+    short_t domainDim() const override
+    {
+        if (m_container.size() > 0)
+            return m_container[0].domainDim();
+        return 0;
+    }
+
+    /// Target dimension
+    short_t targetDim() const override
+    {
+        if (m_container.size() > 0)
+            return m_container[0].targetDim();
+        return 0;
+    }
+
+    /// Evaluate function - requires patch index (no default evaluation across all patches)
+    void eval_into(const gsMatrix<T>& u, gsMatrix<T>& result) const override
+    {
+        GISMO_ERROR("gsLookupFunction requires patch index for evaluation. Use eval_into(patch, u, result)");
+    }
+
+    /// Evaluate derivatives - requires patch index (no default evaluation across all patches)
+    void deriv_into(const gsMatrix<T>& u, gsMatrix<T>& result) const override
+    {
+        GISMO_ERROR("gsLookupFunction requires patch index for evaluation. Use deriv_into(patch, u, result)");
+    }
+
+    /// Evaluate second derivatives - requires patch index (no default evaluation across all patches)
+    void deriv2_into(const gsMatrix<T>& u, gsMatrix<T>& result) const override
+    {
+        GISMO_ERROR("gsLookupFunction requires patch index for evaluation. Use deriv2_into(patch, u, result)");
+    }
+
+    /// Evaluate the function at points u for specific patch
+    void eval_into(const index_t patch, const gsMatrix<T>& u, gsMatrix<T>& result) const
+    {
+        GISMO_ASSERT(patch < m_container.size(), "Patch index out of bounds");
+        m_container[patch].eval_into(u, result);
+    }
+
+    /// Evaluate derivatives for specific patch
+    void deriv_into(const index_t patch, const gsMatrix<T>& u, gsMatrix<T>& result) const
+    {
+        GISMO_ASSERT(patch < m_container.size(), "Patch index out of bounds");
+        m_container[patch].deriv_into(u, result);
+    }
+
+    /// Evaluate second derivatives for specific patch
+    void deriv2_into(const index_t patch, const gsMatrix<T>& u, gsMatrix<T>& result) const
+    {
+        GISMO_ASSERT(patch < m_container.size(), "Patch index out of bounds");
+        m_container[patch].deriv2_into(u, result);
+    }
+
+    /// Get the lookup function container
+    const Container & container() const { return m_container; }
+
+    /// Get the lookup function container (non-const)
+    Container  & container() { return m_container; }
+
+    /// Add lookup function (appends to the end)
+    void add(const gsMatrix<T> & points, const gsMatrix<T> & data)
+    {
+        m_container.push_back(gsLookupFunctionSingle<T>(points, data));
+    }
+
+    /// Set lookup function for a specific patch index
+    void set(index_t patch, const gsMatrix<T> & points, const gsMatrix<T> & data)
+    {
+        GISMO_ASSERT(patch < m_container.size(), "Patch index out of bounds");
+        m_container[patch] = gsLookupFunctionSingle<T>(points, data);
+    }
+
+protected:
+    Container m_container;
+};
 
 /**
  * @brief      Class defining a function that looks up registered data on points.
@@ -31,7 +162,7 @@ namespace gismo
  */
 
 template <class T>
-class gsLookupFunction : public gsFunction<T>
+class gsLookupFunctionSingle : public gsFunction<T>
 {
 
     struct Compare
@@ -46,16 +177,18 @@ public:
     typedef gsGeometry<T> Base;
 
     /// Shared pointer for gsLookupFunction
-    typedef memory::shared_ptr< gsLookupFunction > Ptr;
+    typedef memory::shared_ptr< gsLookupFunctionSingle > Ptr;
 
     /// Unique pointer for gsLookupFunction
-    typedef memory::unique_ptr< gsLookupFunction > uPtr;
+    typedef memory::unique_ptr< gsLookupFunctionSingle > uPtr;
 
-    // /// Default constructor
-    // gsLookupFunction() { }
+    /// Default constructor
+    gsLookupFunctionSingle() { 
+        // Note: m_points and m_data are empty, update() will be called when data is added
+    }
 
     /**
-     * @brief      Constructs a new instance of the gsLookupFunction
+     * @brief      Constructs a new instance of the gsLookupFunctionSingle
      *
      * @param      interface   The precice::SolverInterface (see \a gsPreCICE)
      * @param[in]  meshName      The ID of the mesh on which the data is located
@@ -63,8 +196,8 @@ public:
      * @param[in]  patches     The geometry
      * @param[in]  parametric  Specifies whether the data is defined on the parametric domain or not
      */
-    gsLookupFunction(   const gsMatrix<T> & points,
-                        const gsMatrix<T> & data   )
+    gsLookupFunctionSingle(   const gsMatrix<T> & points,
+                              const gsMatrix<T> & data   )
     :
     m_points(points),
     m_data(data)
@@ -75,12 +208,12 @@ public:
     /// Constructs a function pointer
     static uPtr make(   const gsMatrix<T> & points,
                         const gsMatrix<T> & data   )
-    { return uPtr(new gsLookupFunction(points, data)); }
+    { return uPtr(new gsLookupFunctionSingle(points, data)); }
 
-    GISMO_CLONE_FUNCTION(gsLookupFunction)
+    GISMO_CLONE_FUNCTION(gsLookupFunctionSingle)
 
     /// Access a piece
-    const gsLookupFunction<T> & piece(const index_t) const
+    const gsLookupFunctionSingle<T> & piece(const index_t) const
     {
         return *this;
     }
@@ -119,7 +252,16 @@ public:
                     return (entry.first - u.col(k)).norm() <= tolerance;
                 });
 
-            GISMO_ASSERT(std::count_if(m_map.begin(), m_map.end(),[&](const std::pair<gsVector<T>, index_t>& entry) {return (entry.first - u.col(k)).norm() <= tolerance;}) == 1,"gsLookupFunction: Multiple points within tolerance");
+            auto count = std::count_if(m_map.begin(), m_map.end(),[&](const std::pair<gsVector<T>, index_t>& entry) {return (entry.first - u.col(k)).norm() <= tolerance;});
+            if (count != 1) {
+                gsWarn << "Query point: " << u.col(k).transpose() << " found " << count << " matches within tolerance " << tolerance << "\n";
+                gsWarn << "Available points in map:\n";
+                for (const auto& entry : m_map) {
+                    T dist = (entry.first - u.col(k)).norm();
+                    gsWarn << "  Point " << entry.second << ": " << entry.first.transpose() << " distance: " << dist << (dist <= tolerance ? " [MATCH]" : "") << "\n";
+                }
+            }
+            GISMO_ASSERT(count == 1,"gsLookupFunctionSingle: Multiple points within tolerance");
 
             GISMO_ASSERT(it != m_map.end(),
                 "Coordinate " + util::to_string(k) + " [" + util::to_string(u.col(k).transpose()) + "] not registered in the table within tolerance.");
@@ -163,17 +305,18 @@ public:
     /// See \a gsFunction
     virtual std::ostream &print(std::ostream &os) const
     {
-        os << "gsLookupFunction\n";
+        os << "gsLookupFunctionSingle\n";
         return os;
     }
 
 protected:
 
-    const gsMatrix<T> & m_points;
-    const gsMatrix<T> & m_data;
+    gsMatrix<T> m_points;
+    gsMatrix<T> m_data;
 
     std::map<gsVector<T>,index_t,Compare> m_map;
 
 };
 
-}
+} // namespace gismo
+

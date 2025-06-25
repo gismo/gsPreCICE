@@ -385,4 +385,124 @@ typename gsBasis<T>::Ptr knotMatrixToBasis(const gsMatrix<T> & knots)
     return memory::make_shared_not_owned(basis);
 }
 
+/**
+ * @brief Creates a 3D volume from a 2D surface by extruding along its normals with variable thickness.
+ *
+ * This function takes a 2D tensor B-spline surface and extrudes it according to a scalar thickness function
+ * to create a 3D tensor B-spline volume. The extrusion is performed along the surface normals, with half
+ * of the thickness extending in each direction (positive and negative).
+ *
+ * @tparam T Numeric type (e.g., real_t, double)
+ * @param surface Input tensor B-spline surface (2D parametric domain)
+ * @param thickness Function that maps from the surface parameter space to thickness values
+ *
+ * @return A 3D tensor B-spline volume created by extruding the input surface
+ *
+ * @note The function supports both 2D and 3D target dimensions for the input surface.
+ *       For 2D surfaces, the normal vector is assumed to be (0,0,1).
+ *       For 3D surfaces, proper surface normals are computed.
+ *
+ * @throws AssertionError if the thickness function is not defined on a 2D domain
+ * @throws AssertionError if the thickness function is not scalar-valued
+ * @throws AssertionError if the surface is not defined on a 2D domain
+ * @throws Error if the surface's target dimension is not 2D or 3D
+ */
+template <class T>
+gsTensorBSpline<3, T> surfaceToVolume(const gsTensorBSpline<2, T> & surface, const gsFunction<T> & thickness)
+{
+    // Validate input parameters
+    GISMO_ASSERT(thickness.domainDim() == 2,"Thickness function must be defined on a 2D domain.");
+    GISMO_ASSERT(thickness.targetDim() == 1,"Thickness function must be scalar valued.");
+    GISMO_ASSERT(surface.domainDim() == 2,"Surface must be defined on a 2D domain.");
+
+    // Create a knot vector for the third dimension (thickness direction)
+    // Linear basis with 2 elements: [0,0,0.5,1,1] (degree 1, 2 internal knots)
+    gsKnotVector<T> kvZ(0, 1, 1, 2);
+
+    // Create a 3D tensor B-spline basis by combining the existing 2D basis with the new Z knot vector
+    gsTensorBSplineBasis<3, T> basis(surface.basis().knots(0),
+                                      surface.basis().knots(1),
+                                      kvZ);
+
+    // Calculate control point count for the new volume
+    const index_t nCoefs = surface.coefs().rows();
+
+    // Allocate control points matrix for the volume (3 layers of control points)
+    gsMatrix<T> coefs(3*nCoefs, surface.coefs().cols());
+
+    // Get parametric coordinates (anchors) of the surface control points
+    gsMatrix<T> anchors = surface.basis().anchors();
+
+    // Matrix to store thickness values at each anchor point
+    gsMatrix<T> thicknessValues;
+
+    // Evaluate the thickness function at each anchor point
+    thickness.eval_into(anchors, thicknessValues);
+
+    // Matrix to store surface normals
+    gsMatrix<T> normals;
+
+    // Handle different dimension cases for the surface
+    if (surface.targetDim() == 2)
+    {
+        // For 2D surfaces, use (0,0,1) as the normal vector
+        normals = gsMatrix<T>::Zero(3, anchors.cols());
+        normals.row(2).setConstant(1.0); // Set the z-component of the normal to 1
+    }
+    else if (surface.targetDim() == 3)
+    {
+        // For 3D surfaces, compute proper surface normals at each anchor point
+        gsMapData<T> md(NEED_NORMAL);
+        md.points = anchors;
+        surface.computeMap(md);
+        std::swap(md.normals, normals); // Get the computed normal vectors
+    }
+    else
+    {
+        GISMO_ERROR("The surface must be 2D or 3D.");
+    }
+
+    // For each control point of the surface
+    for (index_t k = 0; k != anchors.cols(); k++)
+    {
+        // Normalize the normal vector
+        const gsVector<T> & normal = normals.col(k).normalized();
+
+        // Get thickness value at this control point
+        const T & t = thicknessValues(0,k);
+
+        // Create three layers of control points:
+        // Bottom layer: offset by -0.5*thickness along the normal
+        coefs.row(k)            = surface.coefs().row(k) - 0.5*t*normal.transpose();
+        // Middle layer: original surface control point
+        coefs.row(k + nCoefs)   = surface.coefs().row(k);
+        // Top layer: offset by +0.5*thickness along the normal
+        coefs.row(k + 2*nCoefs) = surface.coefs().row(k) + 0.5*t*normal.transpose();
+    }
+
+    // Create and return the 3D tensor B-spline volume
+    return gsTensorBSpline<3, T>(basis, coefs);
+}
+
+/**
+ * @brief Converts a 2D tensor B-spline surface to a 3D tensor B-spline volume.
+ *
+ * This function creates a volumetric representation of a surface by extruding the
+ * surface in the normal direction with a constant thickness.
+ *
+ * @tparam T Type for coordinates (typically float or double)
+ *
+ * @param surface The input 2D tensor B-spline surface
+ * @param thickness The constant thickness value for the extrusion (default = 1.0)
+ *
+ * @return A 3D tensor B-spline volume representing the extruded surface
+ *
+ * @see toVolume(const gsTensorBSpline<2, T> &, const gsFunction<T> &)
+ */
+template <class T>
+gsTensorBSpline<3, T> toVolume(const gsTensorBSpline<2, T> & surface, const T & thickness = 1.0)
+{
+    return toVolume(surface,gsConstantFunction<T>(thickness, surface.basis().domainDim()));
+}
+
 } //namespace gismo

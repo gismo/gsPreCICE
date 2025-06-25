@@ -164,13 +164,28 @@ int main(int argc, char *argv[])
         quad_xy.block(0,patchOffsets[p],patches.geoDim(),patchQuad_xy[p].cols()) = patchQuad_xy[p];
     }
     gsVector<index_t> quad_xyIDs; // needed for writing
+    gsInfo << "Adding mesh to PreCICE with " << quad_xy.cols() << " points\n";
+    gsInfo << "quad_xy dimensions: " << quad_xy.rows() << " x " << quad_xy.cols() << "\n";
     participant.addMesh(SolidMesh,quad_xy,quad_xyIDs);
+    gsInfo << "Mesh added successfully\n";
 
     gsDebugVar(quad_xy);
     gsDebugVar(quad_uv);
 
+    // Check if initial data is required (call before initialize)
+    bool needsInitialData = participant.requiresInitialData();
+    
     // Define precice interface
     real_t precice_dt = participant.initialize();
+    
+    // Write initial data after initialize if required
+    if (needsInitialData)
+    {
+        gsInfo << "Writing initial displacement data...\n";
+        gsMatrix<> initialDisplacement(patches.geoDim(), quad_xy.cols());
+        initialDisplacement.setZero(); // Initial displacement is zero
+        participant.writeData(SolidMesh, DisplacementData, quad_xyIDs, initialDisplacement);
+    }
 
 // ----------------------------------------------------------------------------------------------
 
@@ -182,14 +197,12 @@ int main(int argc, char *argv[])
     // gsFunctionExpr<> g_C("1","0",patches.geoDim());
 
     // get from XML ???
-    gsLookupFunction<real_t> g_L;
+    // Initialize quad_stress matrix for storing stress data from PreCICE
     gsMatrix<> quad_stress(2,quad_xy.cols());
-    std::vector<gsMatrix<>> patchQuad_stress(patches.nPatches());
-    for (size_t p=0; p!=patches.nPatches(); ++p)
-    {
-        patchQuad_stress[p].resize(2,patchQuad_xy[p].cols());
-        g_L.add(patchQuad_xy[p], patchQuad_stress[p]);
-    }
+    quad_stress.setZero();
+    
+    // Create lookup function with quad_xy points and quad_stress data
+    gsLookupFunction<real_t> g_L(quad_xy, quad_stress);
 
     // gsPreCICEFunction<real_t> g_C(&participant,SolidMesh,StressData,patches,patches.geoDim(),false);
     // Add all BCs
@@ -340,8 +353,9 @@ int main(int argc, char *argv[])
 
     gsMatrix<> pointDataMatrix;
     gsMatrix<> otherDataMatrix(1,1);
-
+    
     // Time integration loop
+    gsInfo << "Starting coupling time loop...\n";
     while (participant.isCouplingOngoing())
     {
         if (participant.requiresWritingCheckpoint())
@@ -360,7 +374,7 @@ int main(int argc, char *argv[])
         }
 
         participant.readData(SolidMesh,StressData,quad_xyIDs,quad_stress);
-        // g_L.update();
+        g_L.update();
         // solve gismo timestep
         gsInfo << "Solving timestep " << time << "...\n";
         timeIntegrator->step(time,dt,U,V,A);

@@ -165,10 +165,6 @@ int main(int argc, char *argv[])
     }
     gsVector<index_t> quad_xyIDs; // needed for writing
     participant.addMesh(SolidMesh,quad_xy,quad_xyIDs);
-    gsInfo << "Mesh added successfully\n";
-
-    gsDebugVar(quad_xy);
-    gsDebugVar(quad_uv);
 
     // Check if initial data is required (call before initialize)
     bool needsInitialData = participant.requiresInitialData();
@@ -199,8 +195,16 @@ int main(int argc, char *argv[])
     gsMatrix<> quad_stress(2,quad_xy.cols());
     quad_stress.setZero();
     
-    // Create lookup function with quad_xy points and quad_stress data
-    gsLookupFunction<real_t> g_L(quad_xy, quad_stress);
+    // Create lookup function with multiple patches
+    gsLookupFunction<real_t> g_L(patches.nPatches());
+    
+    // Add lookup function data for each patch separately
+    for (size_t p = 0; p != patches.nPatches(); ++p)
+    {
+        // Get stress data for this patch
+        gsMatrix<> patch_stress = quad_stress.block(0, patchOffsets[p], 2, patchQuad_xy[p].cols());
+        g_L.add(patchQuad_xy[p], patch_stress);
+    }
 
     // gsPreCICEFunction<real_t> g_C(&participant,SolidMesh,StressData,patches,patches.geoDim(),false);
     // Add all BCs
@@ -372,7 +376,14 @@ int main(int argc, char *argv[])
         }
 
         participant.readData(SolidMesh,StressData,quad_xyIDs,quad_stress);
-        g_L.update();
+        
+        // Update the lookup function with new stress data for each patch
+        for (size_t p = 0; p != patches.nPatches(); ++p)
+        {
+            gsMatrix<> patch_stress = quad_stress.block(0, patchOffsets[p], 2, patchQuad_xy[p].cols());
+            g_L.set(p, patchQuad_xy[p], patch_stress);
+        }
+
         // solve gismo timestep
         gsInfo << "Solving timestep " << time << "...\n";
         timeIntegrator->step(time,dt,U,V,A);

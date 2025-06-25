@@ -164,8 +164,6 @@ int main(int argc, char *argv[])
         quad_xy.block(0,patchOffsets[p],patches.geoDim(),patchQuad_xy[p].cols()) = patchQuad_xy[p];
     }
     gsVector<index_t> quad_xyIDs; // needed for writing
-    gsInfo << "Adding mesh to PreCICE with " << quad_xy.cols() << " points\n";
-    gsInfo << "quad_xy dimensions: " << quad_xy.rows() << " x " << quad_xy.cols() << "\n";
     participant.addMesh(SolidMesh,quad_xy,quad_xyIDs);
     gsInfo << "Mesh added successfully\n";
 

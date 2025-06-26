@@ -366,6 +366,163 @@ public:
     }
 
     /**
+     * @brief      Resets the mesh with the given name
+     *
+     * @param[in]  meshName  The mesh name to reset
+     *
+     * @note       This function is available in preCICE v3.2+
+     */
+    void resetMesh(const std::string & meshName)
+    {
+        m_interface.resetMesh(meshName);
+        
+        // Clean up internal data structures for this mesh
+        if (m_meshNames.find(meshName) != m_meshNames.end())
+        {
+            index_t meshIndex = m_meshNames[meshName];
+            if (meshIndex < m_maps.size())
+            {
+                m_maps[meshIndex].clear();
+            }
+            m_meshNames.erase(meshName);
+            m_meshDims.erase(meshName);
+        }
+    }
+
+    /**
+     * @brief      Sets a mesh edge
+     *
+     * @param[in]  meshName  The mesh name
+     * @param[in]  first     First vertex ID
+     * @param[in]  second    Second vertex ID
+     */
+    void setMeshEdge(const std::string & meshName, index_t first, index_t second)
+    {
+        m_interface.setMeshEdge(meshName, first, second);
+    }
+
+    /**
+     * @brief      Sets multiple mesh edges
+     *
+     * @param[in]  meshName  The mesh name
+     * @param[in]  ids       Vector of vertex IDs (pairs of vertices)
+     */
+    void setMeshEdges(const std::string & meshName, const gsVector<index_t> & ids)
+    {
+        m_interface.setMeshEdges(meshName, ids);
+    }
+
+    /**
+     * @brief      Sets a mesh triangle
+     *
+     * @param[in]  meshName  The mesh name
+     * @param[in]  first     First vertex ID
+     * @param[in]  second    Second vertex ID
+     * @param[in]  third     Third vertex ID
+     */
+    void setMeshTriangle(const std::string & meshName, index_t first, index_t second, index_t third)
+    {
+        m_interface.setMeshTriangle(meshName, first, second, third);
+    }
+
+    /**
+     * @brief      Sets multiple mesh triangles
+     *
+     * @param[in]  meshName  The mesh name
+     * @param[in]  ids       Vector of vertex IDs (triplets of vertices)
+     */
+    void setMeshTriangles(const std::string & meshName, const gsVector<index_t> & ids)
+    {
+        m_interface.setMeshTriangles(meshName, ids);
+    }
+
+    /**
+     * @brief      Sets a mesh quad
+     *
+     * @param[in]  meshName  The mesh name
+     * @param[in]  first     First vertex ID
+     * @param[in]  second    Second vertex ID
+     * @param[in]  third     Third vertex ID
+     * @param[in]  fourth    Fourth vertex ID
+     */
+    void setMeshQuad(const std::string & meshName, index_t first, index_t second, index_t third, index_t fourth)
+    {
+        m_interface.setMeshQuad(meshName, first, second, third, fourth);
+    }
+
+    /**
+     * @brief      Sets multiple mesh quads
+     *
+     * @param[in]  meshName  The mesh name
+     * @param[in]  ids       Vector of vertex IDs (quadruples of vertices)
+     */
+    void setMeshQuads(const std::string & meshName, const gsVector<index_t> & ids)
+    {
+        m_interface.setMeshQuads(meshName, ids);
+    }
+
+    /**
+     * @brief      Sets a mesh tetrahedron
+     *
+     * @param[in]  meshName  The mesh name
+     * @param[in]  first     First vertex ID
+     * @param[in]  second    Second vertex ID
+     * @param[in]  third     Third vertex ID
+     * @param[in]  fourth    Fourth vertex ID
+     */
+    void setMeshTetrahedron(const std::string & meshName, index_t first, index_t second, index_t third, index_t fourth)
+    {
+        m_interface.setMeshTetrahedron(meshName, first, second, third, fourth);
+    }
+
+    /**
+     * @brief      Sets multiple mesh tetrahedra
+     *
+     * @param[in]  meshName  The mesh name
+     * @param[in]  ids       Vector of vertex IDs (quadruples of vertices)
+     */
+    void setMeshTetrahedra(const std::string & meshName, const gsVector<index_t> & ids)
+    {
+        m_interface.setMeshTetrahedra(meshName, ids);
+    }
+
+    /**
+     * @brief      Checks if the given mesh requires connectivity
+     *
+     * @param[in]  meshName  The mesh name
+     *
+     * @return     True if mesh requires connectivity, False otherwise
+     *
+     * @note       This function is available in preCICE v3.2+
+     */
+    bool requiresMeshConnectivityFor(const std::string & meshName)
+    {
+        return m_interface.requiresMeshConnectivityFor(meshName);
+    }
+
+    /**
+     * @brief      Sets a single mesh vertex
+     *
+     * @param[in]  meshName  The mesh name
+     * @param[in]  position  The position vector
+     *
+     * @return     The vertex ID
+     */
+    index_t setMeshVertex(const std::string & meshName, const gsVector<T> & position)
+    {
+        const index_t dMesh = m_interface.getMeshDimensions(meshName);
+        const index_t dPos = position.rows();
+        
+        GISMO_ASSERT(dPos <= dMesh, "Position dimension must be <= mesh dimension");
+        
+        gsVector<T> dimPosition(dMesh);
+        dimPosition.setZero();
+        dimPosition.head(dPos) = position;
+        
+        return m_interface.setMeshVertex(meshName, dimPosition);
+    }
+
+    /**
      * @brief      Returns the ID of the mesh
      *
      * @param[in]  dataName  The name of the data

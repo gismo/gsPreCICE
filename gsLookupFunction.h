@@ -34,14 +34,14 @@ public:
     typedef memory::unique_ptr< gsLookupFunction > uPtr;
     typedef gsLookupFunctionSingle<T> Piece_t;
 
-    // Using unique_ptr for better performance and less memory overhead
+    // Using unique_ptr 
     typedef std::vector<memory::unique_ptr<Piece_t>> Container;
 
     // Constructor
     gsLookupFunction(size_t nPatches = 0)
     : m_container(nPatches)
     {
-        // Container is initialized with nPatches null pointers
+        // Use n nullptrs to initialize the container
     }
     /// Constructor with points and data for a single patch
     gsLookupFunction(const gsMatrix<T> & points,
@@ -129,7 +129,6 @@ public:
     void eval_into(const index_t patch, const gsMatrix<T>& u, gsMatrix<T>& result) const
     {
         GISMO_ASSERT(patch < m_container.size(), "Patch index out of bounds");
-        GISMO_ASSERT(m_container[patch], "Piece at index " + std::to_string(patch) + " is not initialized");
         m_container[patch]->eval_into(u, result);
     }
 
@@ -137,7 +136,6 @@ public:
     void deriv_into(const index_t patch, const gsMatrix<T>& u, gsMatrix<T>& result) const
     {
         GISMO_ASSERT(patch < m_container.size(), "Patch index out of bounds");
-        GISMO_ASSERT(m_container[patch], "Piece at index " + std::to_string(patch) + " is not initialized");
         m_container[patch]->deriv_into(u, result);
     }
 
@@ -145,7 +143,6 @@ public:
     void deriv2_into(const index_t patch, const gsMatrix<T>& u, gsMatrix<T>& result) const
     {
         GISMO_ASSERT(patch < m_container.size(), "Patch index out of bounds");
-        GISMO_ASSERT(m_container[patch], "Piece at index " + std::to_string(patch) + " is not initialized");
         m_container[patch]->deriv2_into(u, result);
     }
 

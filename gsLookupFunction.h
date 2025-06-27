@@ -252,16 +252,7 @@ public:
                     return (entry.first - u.col(k)).norm() <= tolerance;
                 });
 
-            auto count = std::count_if(m_map.begin(), m_map.end(),[&](const std::pair<gsVector<T>, index_t>& entry) {return (entry.first - u.col(k)).norm() <= tolerance;});
-            if (count != 1) {
-                gsWarn << "Query point: " << u.col(k).transpose() << " found " << count << " matches within tolerance " << tolerance << "\n";
-                gsWarn << "Available points in map:\n";
-                for (const auto& entry : m_map) {
-                    T dist = (entry.first - u.col(k)).norm();
-                    gsWarn << "  Point " << entry.second << ": " << entry.first.transpose() << " distance: " << dist << (dist <= tolerance ? " [MATCH]" : "") << "\n";
-                }
-            }
-            GISMO_ASSERT(count == 1,"gsLookupFunctionSingle: Multiple points within tolerance");
+            GISMO_ASSERT(std::count_if(m_map.begin(), m_map.end(),[&](const std::pair<gsVector<T>, index_t>& entry) {return (entry.first - u.col(k)).norm() <= tolerance;}) == 1,"gsLookupFunction: Multiple points within tolerance");
 
             GISMO_ASSERT(it != m_map.end(),
                 "Coordinate " + util::to_string(k) + " [" + util::to_string(u.col(k).transpose()) + "] not registered in the table within tolerance.");

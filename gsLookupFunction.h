@@ -129,6 +129,7 @@ public:
     void eval_into(const index_t patch, const gsMatrix<T>& u, gsMatrix<T>& result) const
     {
         GISMO_ASSERT(patch < m_container.size(), "Patch index out of bounds");
+        GISMO_ASSERT(m_container[patch], "Lookup function for the specified patch is null");
         m_container[patch]->eval_into(u, result);
     }
 

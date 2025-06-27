@@ -1,6 +1,6 @@
-/** @file solid-gismo-elasticity.cpp
+/** @file perpendicular-flap-multipatch-vertex-gismo.cpp
 
-    @brief Elasticity participant for the PreCICE example "perpendicular-flap".
+    @brief Elasticity participant for the PreCICE example "perpendicular-flap" using multi-patches.
 
 
     This file is part of the G+Smo library.

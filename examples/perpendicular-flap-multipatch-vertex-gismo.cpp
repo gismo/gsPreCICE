@@ -302,24 +302,24 @@ int main(int argc, char *argv[])
 
 
 
-    gsDynamicBase<real_t> * timeIntegrator;
+    std::unique_ptr<gsDynamicBase<real_t>> timeIntegrator;
     if (method==1)
-        timeIntegrator = new gsDynamicExplicitEuler<real_t,true>(Mass,Damping,Jacobian,Residual);
+        timeIntegrator = std::make_unique<gsDynamicExplicitEuler<real_t,true>>(Mass,Damping,Jacobian,Residual);
     else if (method==2)
-        timeIntegrator = new gsDynamicImplicitEuler<real_t,true>(Mass,Damping,Jacobian,Residual);
+        timeIntegrator = std::make_unique<gsDynamicImplicitEuler<real_t,true>>(Mass,Damping,Jacobian,Residual);
     else if (method==3 && nonlinear==false)
-        timeIntegrator = new gsDynamicNewmark<real_t,false>(Mass,Damping,Stiffness,TForce);
+        timeIntegrator = std::make_unique<gsDynamicNewmark<real_t,false>>(Mass,Damping,Stiffness,TForce);
     else if (method==3 && nonlinear==true)
-            timeIntegrator = new gsDynamicNewmark<real_t,true>(Mass,Damping,Jacobian,Residual);
+            timeIntegrator = std::make_unique<gsDynamicNewmark<real_t,true>>(Mass,Damping,Jacobian,Residual);
     else if (method==4)
-        timeIntegrator = new gsDynamicBathe<real_t,true>(Mass,Damping,Jacobian,Residual);
+        timeIntegrator = std::make_unique<gsDynamicBathe<real_t,true>>(Mass,Damping,Jacobian,Residual);
     else if (method==5)
     {
-        timeIntegrator = new gsDynamicWilson<real_t,true>(Mass,Damping,Jacobian,Residual);
+        timeIntegrator = std::make_unique<gsDynamicWilson<real_t,true>>(Mass,Damping,Jacobian,Residual);
         timeIntegrator->options().setReal("gamma",1.4);
     }
     else if (method==6)
-        timeIntegrator = new gsDynamicRK4<real_t,true>(Mass,Damping,Jacobian,Residual);
+        timeIntegrator = std::make_unique<gsDynamicRK4<real_t,true>>(Mass,Damping,Jacobian,Residual);
     else
         GISMO_ERROR("Method "<<method<<" not known");
 

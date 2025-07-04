@@ -94,8 +94,8 @@ int main(int argc, char *argv[])
 
     ////////////////////////////////////////////////////////////////////////////
     // Construct the 2D mid-surface geometry
-    gsKnotVector<> kv1(0, 1, n - degree - 1, degree + 1);
-    gsKnotVector<> kv2(0, 1, m - degree - 1, degree + 1);
+    gsKnotVector<> kv1(0, 1, 0, 2);
+    gsKnotVector<> kv2(0, 1, n - degree - 1, degree + 1);
     gsTensorBSplineBasis<2, real_t> basis(kv1, kv2);
     gsMatrix<> greville = basis.anchors();
 
@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
     // PreCICE coupling initialization.
     std::string participantName = "Solid";
     gsPreCICE<real_t> participant(participantName, precice_config);
-    gsDebugVar("Got here 1");
+
 
     std::string SolidMesh = "Solid-Mesh";
     std::string StressData = "Stress";
@@ -155,10 +155,13 @@ int main(int argc, char *argv[])
     frontInterface.push_back(patchSide(0, boundary::front));  // Top surface (w=1)
     backInterface.push_back(patchSide(0, boundary::back));    // Bottom surface (w=0)
 
-    gsDebugVar("Got here 2");
+
     // Get 3D quadrature points separately for each surface
     gsMatrix<> quad_uv_front = gsQuadrature::getAllNodes(vbasis.basis(0), quadOptions, frontInterface);
     gsMatrix<> quad_uv_back = gsQuadrature::getAllNodes(vbasis.basis(0), quadOptions, backInterface);
+
+    gsInfo << "uv front 3d: " << quad_uv_front << "\n";
+    gsInfo << "uv back 3d: " << quad_uv_back << "\n";
     
     // Evaluate positions
     gsMatrix<> quad_xy_front = volume->eval(quad_uv_front);
@@ -187,7 +190,9 @@ int main(int argc, char *argv[])
     bcInfo.addCondition(0, boundary::south, condition_type::dirichlet, 0, 0, false, 0);
     bcInfo.addCondition(0, boundary::south, condition_type::dirichlet, 0, 0, false, 1);
     bcInfo.addCondition(0, boundary::south, condition_type::dirichlet, 0, 0, false, 2);
-    bcInfo.addCondition(0, boundary::south, condition_type::clamped, 0, 0, false, -1);
+    bcInfo.addCondition(0, boundary::south, condition_type::clamped, 0, 0, false, 0);
+    bcInfo.addCondition(0, boundary::east, condition_type::clamped, 0, 0, false, 2);
+    bcInfo.addCondition(0, boundary::west, condition_type::clamped, 0, 0, false, 2);
     bcInfo.setGeoMap(mid_surface_geom);
 
     ////////////////////////////////////////////////////////////////////////////
@@ -220,7 +225,9 @@ int main(int argc, char *argv[])
 
     gsMultiBasis<> bases(basis);
     gsThinShellAssemblerBase<real_t>* assembler;
-    assembler = new gsThinShellAssembler<3, real_t, false>(mid_surface_geom, bases, bcInfo, surfForce, materialMatrix);  // Use linear for now
+    // gsFunctionExpr<real_t> dummysurf("t","0","0", 3);
+    // dummysurf.set_t(0);  // Set time to zero for initial conditions
+    assembler = new gsThinShellAssembler<3, real_t, true>(mid_surface_geom, bases, bcInfo, surfForce, materialMatrix);  // Use linear for now
     gsOptionList assemblerOptions = options.wrapIntoGroup("Assembler");
     assembler->assemble();
     assembler->setOptions(assemblerOptions);
@@ -228,11 +235,13 @@ int main(int argc, char *argv[])
     // Assemble constant mass and stiffness matrices.
     assembler->assembleMass();
     gsSparseMatrix<> M = assembler->massMatrix();
+    gsInfo << "Mass norm" << M.norm() << "\n";
     assembler->assemble();
     gsSparseMatrix<> K = assembler->matrix();
 
     gsFileManager::mkdir(dirname);
     gsParaviewCollection collection(dirname + "/solution");
+    gsParaviewCollection collection_surface(dirname + "/deformed_surface");
     gsParaviewCollection collection_volume(dirname + "/deformed_volume");
 
     ////////////////////////////////////////////////////////////////////////////
@@ -334,8 +343,12 @@ int main(int argc, char *argv[])
         
         for (index_t i = 0; i < numFrontPoints; ++i)
         {
-            avgForces.col(i) = 0.5 * (stressDataRead.col(i) + stressDataRead.col(numFrontPoints + i));
+            avgForces.col(i) =  (stressDataRead.col(i) + stressDataRead.col(numFrontPoints + i));
         }
+
+        // avgForces.row(0) << avgForces.row(2);
+
+        // avgForces.row(2).setZero();
         
         // Extract 2D parametric coordinates from 3D front boundary
         gsMatrix<> surf_quad_uv(2, numFrontPoints);
@@ -349,6 +362,7 @@ int main(int argc, char *argv[])
         gsMatrix<> surf_quad_xy = surface.eval(surf_quad_uv);
         // Update the quadPointsData with the average forces for the look up function
         quadPointsData = avgForces;
+        // quadPointsData.setOnes();
 
         // Debug output
         gsDebugVar(quadPointsData.norm());
@@ -356,7 +370,6 @@ int main(int argc, char *argv[])
         
         if (get_readTime)
             t_read += participant.readTime();
-
         assembler->assemble();
         F = assembler->rhs();
 
@@ -368,7 +381,7 @@ int main(int argc, char *argv[])
         dt = std::min(dt, precice_dt);
 
         // Construct the deformed solution of the mid-surface from current displacement U (updated mid-surface geometry)
-        gsMultiPatch<> solution = assembler->constructDisplacement(U);
+        gsMultiPatch<> solution = assembler->constructSolution(U);
         // Calculate mid-surface displacement at integration points and control points (for output only, not used for new normal calculation)
         gsMatrix<> MidPointDisp = solution.patch(0).eval(quad_shell_uv);
 
@@ -405,6 +418,8 @@ int main(int argc, char *argv[])
             time += dt;
             timestep++;
 
+            assembler->constructDisplacement(U, solution);
+
             gsField<> solField(mid_surface_geom, solution);
             if (timestep % plotmod == 0 && plot)
             {
@@ -417,8 +432,14 @@ int main(int argc, char *argv[])
                 std::string fileName2 = dirname + "/deformed_surface" + util::to_string(timestep);
                 gsWriteParaview(deformed_surface, fileName2, 1000, true);
                 std::string fileNameSurf = "deformed_surface" + util::to_string(timestep);
-                collection_volume.addTimestep(fileNameSurf, time, ".vts");
+                collection_surface.addTimestep(fileNameSurf, time, ".vts");
+
+                std::string fileName3 = dirname + "/deformed_volume" + util::to_string(timestep);
+                gsWriteParaview(deformed_volume3D, fileName3, 1000, true);
+                std::string fileNameVol = "deformed_volume" + util::to_string(timestep);
+                collection_volume.addTimestep(fileNameVol, time, ".vts");
             }
+        
         }
     } // end while coupling loop
 
@@ -430,7 +451,9 @@ int main(int argc, char *argv[])
     if (plot)
     {
         collection.save();
+        collection_surface.save();  
         collection_volume.save();
+        
     }
 
     delete timeIntegrator;

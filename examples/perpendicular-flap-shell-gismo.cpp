@@ -160,8 +160,6 @@ int main(int argc, char *argv[])
     gsMatrix<> quad_uv_front = gsQuadrature::getAllNodes(vbasis.basis(0), quadOptions, frontInterface);
     gsMatrix<> quad_uv_back = gsQuadrature::getAllNodes(vbasis.basis(0), quadOptions, backInterface);
 
-    gsInfo << "uv front 3d: " << quad_uv_front << "\n";
-    gsInfo << "uv back 3d: " << quad_uv_back << "\n";
     
     // Evaluate positions
     gsMatrix<> quad_xy_front = volume->eval(quad_uv_front);

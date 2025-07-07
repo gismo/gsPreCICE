@@ -318,7 +318,6 @@ int main(int argc, char *argv[])
         }
 
         participant.readData(SolidMesh,StressData,quad_xyIDs,quad_stress);
-        // g_L.update();
         // solve gismo timestep
         gsInfo << "Solving timestep " << time << "...\n";
         timeIntegrator->step(time,dt,U,V,A);
@@ -365,9 +364,6 @@ int main(int argc, char *argv[])
                     collection.addTimestep(fileName,time,".vts");
                 }
                 
-                // solution.patch(0).eval_into(points,pointDataMatrix);
-                // otherDataMatrix<<time;
-                // writer.add(pointDataMatrix,otherDataMatrix);
             }
         }
     }

@@ -502,7 +502,7 @@ gsTensorBSpline<3, T> surfaceToVolume(const gsTensorBSpline<2, T> & surface, con
 template <class T>
 gsTensorBSpline<3, T> toVolume(const gsTensorBSpline<2, T> & surface, const T & thickness = 1.0)
 {
-    return toVolume(surface,gsConstantFunction<T>(thickness, surface.basis().domainDim()));
+    return surfaceToVolume(surface, gsConstantFunction<T>(thickness, surface.basis().domainDim()));
 }
 
 } //namespace gismo

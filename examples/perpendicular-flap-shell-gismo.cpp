@@ -53,6 +53,7 @@ int main(int argc, char *argv[])
     bool write = false;
     bool get_readTime = false;
     bool get_writeTime = false;
+    bool nonlinear = false;
     index_t plotmod = 1;
     index_t numRefine  = 1;
     index_t numElevate = 1;
@@ -264,6 +265,13 @@ int main(int argc, char *argv[])
             result = assembler->rhs();
             return true;
         };
+    // Function for the Residual
+    gsStructuralAnalysisOps<real_t>::TForce_t TForce = [&assembler](real_t, gsVector<real_t> & result)
+    {
+        assembler->assemble();
+        result = assembler->rhs();
+        return true;
+    };
 
     gsSparseMatrix<> C(assembler->numDofs(), assembler->numDofs());
     gsStructuralAnalysisOps<real_t>::Damping_t Damping =
@@ -272,14 +280,20 @@ int main(int argc, char *argv[])
     gsStructuralAnalysisOps<real_t>::Mass_t Mass =
         [&M](gsSparseMatrix<real_t>& m)
         { m = M; return true; };
+    gsStructuralAnalysisOps<real_t>::Stiffness_t Stiffness = 
+        [&K](gsSparseMatrix<real_t> & m) 
+        { m = K; return true; };
+
 
     gsDynamicBase<real_t>* timeIntegrator;
     if (method == 1)
         timeIntegrator = new gsDynamicExplicitEuler<real_t, true>(Mass, Damping, Jacobian, Residual);
     else if (method == 2)
         timeIntegrator = new gsDynamicImplicitEuler<real_t, true>(Mass, Damping, Jacobian, Residual);
-    else if (method == 3)
-        timeIntegrator = new gsDynamicNewmark<real_t, true>(Mass, Damping, Jacobian, Residual);
+    else if (method==3 && nonlinear==false)
+        timeIntegrator = new gsDynamicNewmark<real_t,false>(Mass,Damping,Stiffness,TForce);
+    else if (method==3 && nonlinear==true)
+            timeIntegrator = new gsDynamicNewmark<real_t,true>(Mass,Damping,Jacobian,Residual);
     else if (method == 4)
         timeIntegrator = new gsDynamicBathe<real_t, true>(Mass, Damping, Jacobian, Residual);
     else if (method == 5)

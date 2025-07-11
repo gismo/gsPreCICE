@@ -34,13 +34,14 @@ public:
     typedef memory::unique_ptr< gsLookupFunction > uPtr;
     typedef gsLookupFunctionSingle<T> Piece_t;
 
-    typedef std::vector<Piece_t> Container;
+    // Using unique_ptr 
+    typedef std::vector<memory::unique_ptr<Piece_t>> Container;
 
     // Constructor
     gsLookupFunction(size_t nPatches = 0)
-    : m_container()
+    : m_container(nPatches)
     {
-        m_container.reserve(nPatches);
+        // Use n nullptrs to initialize the container
     }
     /// Constructor with points and data for a single patch
     gsLookupFunction(const gsMatrix<T> & points,
@@ -55,7 +56,24 @@ public:
     {
     }
 
-    GISMO_CLONE_FUNCTION(gsLookupFunction)
+    // clone function for deep copying the lookup function
+    private: 
+    virtual gsLookupFunction* clone_impl() const override 
+    { 
+        gsLookupFunction* result = new gsLookupFunction(m_container.size());
+        // Deep copy each element
+        for (size_t i = 0; i < m_container.size(); ++i) {
+            if (m_container[i]) {
+                result->m_container[i].reset(new Piece_t(*m_container[i]));
+            }
+        }
+        return result;
+    }
+    public:
+    memory::unique_ptr<gsLookupFunction> clone() const 
+    { 
+        return memory::unique_ptr<gsLookupFunction>(clone_impl()); 
+    }
 
     /// Number of pieces
     index_t nPieces() const override
@@ -65,7 +83,8 @@ public:
     const gsFunction<T> & piece(const index_t k) const override
     {
         GISMO_ASSERT(k < m_container.size(), "Piece index out of bounds");
-        return m_container[k];
+        GISMO_ASSERT(m_container[k], "Piece at index " + std::to_string(k) + " is not initialized");
+        return *m_container[k];
     }
 
     /// See \a gsFunctionSet
@@ -75,16 +94,16 @@ public:
     /// Domain dimension
     short_t domainDim() const override
     {
-        if (m_container.size() > 0)
-            return m_container[0].domainDim();
+        if (!m_container.empty() && m_container[0])
+            return m_container[0]->domainDim();
         return 0;
     }
 
     /// Target dimension
     short_t targetDim() const override
     {
-        if (m_container.size() > 0)
-            return m_container[0].targetDim();
+        if (!m_container.empty() && m_container[0])
+            return m_container[0]->targetDim();
         return 0;
     }
 
@@ -110,21 +129,22 @@ public:
     void eval_into(const index_t patch, const gsMatrix<T>& u, gsMatrix<T>& result) const
     {
         GISMO_ASSERT(patch < m_container.size(), "Patch index out of bounds");
-        m_container[patch].eval_into(u, result);
+        GISMO_ASSERT(m_container[patch], "Lookup function for the specified patch is null");
+        m_container[patch]->eval_into(u, result);
     }
 
     /// Evaluate derivatives for specific patch
     void deriv_into(const index_t patch, const gsMatrix<T>& u, gsMatrix<T>& result) const
     {
         GISMO_ASSERT(patch < m_container.size(), "Patch index out of bounds");
-        m_container[patch].deriv_into(u, result);
+        m_container[patch]->deriv_into(u, result);
     }
 
     /// Evaluate second derivatives for specific patch
     void deriv2_into(const index_t patch, const gsMatrix<T>& u, gsMatrix<T>& result) const
     {
         GISMO_ASSERT(patch < m_container.size(), "Patch index out of bounds");
-        m_container[patch].deriv2_into(u, result);
+        m_container[patch]->deriv2_into(u, result);
     }
 
     /// Get the lookup function container
@@ -136,14 +156,16 @@ public:
     /// Add lookup function (appends to the end)
     void add(const gsMatrix<T> & points, const gsMatrix<T> & data)
     {
-        m_container.push_back(gsLookupFunctionSingle<T>(points, data));
+        // Use unique_ptr - more efficient than shared_ptr
+        m_container.push_back(memory::make_unique(new Piece_t(points, data)));
     }
 
     /// Set lookup function for a specific patch index
     void set(index_t patch, const gsMatrix<T> & points, const gsMatrix<T> & data)
     {
         GISMO_ASSERT(patch < m_container.size(), "Patch index out of bounds");
-        m_container[patch] = gsLookupFunctionSingle<T>(points, data);
+        // Reset with unique_ptr - old object is automatically destroyed
+        m_container[patch].reset(new Piece_t(points, data));
     }
 
 protected:
@@ -302,8 +324,8 @@ public:
 
 protected:
 
-    gsMatrix<T> m_points;
-    gsMatrix<T> m_data;
+    const gsMatrix<T>& m_points;
+    const gsMatrix<T>& m_data;
 
     std::map<gsVector<T>,index_t,Compare> m_map;
 

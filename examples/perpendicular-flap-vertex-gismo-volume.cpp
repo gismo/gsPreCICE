@@ -18,8 +18,10 @@
 #include <gsPreCICE/gsPreCICEFunction.h>
 #include <gsPreCICE/gsLookupFunction.h>
 
+#ifdef gsElasticity_ENABLED
 #include <gsElasticity/src/gsMassAssembler.h>
 #include <gsElasticity/src/gsElasticityAssembler.h>
+#endif
 
 #ifdef gsStructuralAnalysis_ENABLED
 #include <gsStructuralAnalysis/src/gsDynamicSolvers/gsDynamicExplicitEuler.h>
@@ -243,13 +245,6 @@ int main(int argc, char *argv[])
     gsStructuralAnalysisOps<real_t>::Mass_t    Mass    = [&M](                          gsSparseMatrix<real_t> & m) { m = M; return true; };
     gsStructuralAnalysisOps<real_t>::Stiffness_t Stiffness = [&K](                      gsSparseMatrix<real_t> & m) { m = K; return true; };
 
-    // if (nonlinear)
-    //     timeIntegrator = new gsDynamicNewmark<real_t,true>(Mass,Damping,Jacobian,Residual);
-    // else
-    //     timeIntegrator = new gsDynamicNewmark<real_t,false>(Mass,Damping,Stiffness,TForce);
-
-
-
     gsDynamicBase<real_t> * timeIntegrator;
     if (method==1)
         timeIntegrator = new gsDynamicExplicitEuler<real_t,true>(Mass,Damping,Jacobian,Residual);
@@ -363,7 +358,7 @@ int main(int argc, char *argv[])
                     fileName = "solution" + util::to_string(timestep) + "0";
                     collection.addTimestep(fileName,time,".vts");
                 }
-                
+
             }
         }
     }
@@ -373,6 +368,6 @@ int main(int argc, char *argv[])
         collection.save();
     }
 
-
+    delete timeIntegrator;
     return  EXIT_SUCCESS;
 }

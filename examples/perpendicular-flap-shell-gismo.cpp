@@ -3,15 +3,15 @@
  * @brief Calculate mechanical response of perpendicular flap shell element
  *
  * This program calculates the mechanical response of a perpendicular flap shell element,
- * including deformation, stress and strain. It uses the gsPreCICE library for structural 
+ * including deformation, stress and strain. It uses the gsPreCICE library for structural
  * analysis and gsThinShellAssembler for shell element analysis.
  *
- * For Kirchhoff–Love shells, a mapping is established between the mid-surface (P) 
- * and the top/bottom surfaces (Q). In this version, the mapping is updated every time step 
+ * For Kirchhoff–Love shells, a mapping is established between the mid-surface (P)
+ * and the top/bottom surfaces (Q). In this version, the mapping is updated every time step
  * based on the current mid-surface geometry: The current unit normal is recalculated,
  * and the corresponding thickness offset is computed for updated 3D control points.
  *
- * This ensures that even for large deformations and rotations the generated volume 
+ * This ensures that even for large deformations and rotations the generated volume
  * (i.e. the top/bottom surfaces) remain perpendicular to the current mid-surface.
  *
  * Author: J. Li, H. Verhelst
@@ -24,9 +24,6 @@
 #include <gsPreCICE/gsLookupFunction.h>
 
 #include <gsAssembler/gsExprEvaluator.h>
-
-// #include <gsElasticity/gsMassAssembler.h>
-// #include <gsElasticity/gsElasticityAssembler.h>
 
 #ifdef gsKLShell_ENABLED
 #include <gsKLShell/src/getMaterialMatrix.h>
@@ -107,9 +104,9 @@ int main(int argc, char *argv[])
     {
         real_t x = greville(0, col);
         real_t y = greville(1, col);
-        coefs(col, 0) = 0; 
-        coefs(col, 1) = y;  
-        coefs(col, 2) = x;   
+        coefs(col, 0) = 0;
+        coefs(col, 1) = y;
+        coefs(col, 2) = x;
     }
     gsTensorBSpline<2, real_t> surface(basis, coefs);
     gsExprEvaluator<> ev;
@@ -120,7 +117,7 @@ int main(int argc, char *argv[])
     // Define thickness for shell and create 3D volume for coupling interface
     gsFunctionExpr<> thickness("0.1", 2);
     real_t shell_thickness = 0.1;
-    
+
     // Create 3D volume using surfaceToVolume for coupling interface only
     gsTensorBSpline<3, real_t> volume3D = surfaceToVolume(surface, thickness);
     gsGeometry<>::uPtr volume = memory::make_unique(new gsTensorBSpline<3, real_t>(volume3D));
@@ -161,23 +158,21 @@ int main(int argc, char *argv[])
     gsMatrix<> quad_uv_front = gsQuadrature::getAllNodes(vbasis.basis(0), quadOptions, frontInterface);
     gsMatrix<> quad_uv_back = gsQuadrature::getAllNodes(vbasis.basis(0), quadOptions, backInterface);
 
-    
+
     // Evaluate positions
     gsMatrix<> quad_xy_front = volume->eval(quad_uv_front);
     gsMatrix<> quad_xy_back = volume->eval(quad_uv_back);
-    
+
     // Combine them in a known order: first all front points, then all back points
     gsMatrix<> quad_xy(3, quad_xy_front.cols() + quad_xy_back.cols());
     quad_xy.leftCols(quad_xy_front.cols()) = quad_xy_front;
     quad_xy.rightCols(quad_xy_back.cols()) = quad_xy_back;
-    
+
     // Also combine parametric coordinates for later use
     gsMatrix<> quad_uv(3, quad_uv_front.cols() + quad_uv_back.cols());
     quad_uv.leftCols(quad_uv_front.cols()) = quad_uv_front;
     quad_uv.rightCols(quad_uv_back.cols()) = quad_uv_back;
 
-    
-    gsDebugVar(quad_xy);
     gsWriteParaviewPoints(quad_xy, "quadPointsAll");
 
     gsVector<index_t> quadPointIDs;
@@ -213,7 +208,7 @@ int main(int argc, char *argv[])
     // Forces will only be non-zero at specific boundary points
     gsMatrix<> quadPointsData(3, quad_shell_xy.cols());
     quadPointsData.setZero();
-    
+
     // Create lookup function for shell forces
     gsLookupFunction<real_t> surfForce(quad_shell_xy, quadPointsData);
 
@@ -280,8 +275,8 @@ int main(int argc, char *argv[])
     gsStructuralAnalysisOps<real_t>::Mass_t Mass =
         [&M](gsSparseMatrix<real_t>& m)
         { m = M; return true; };
-    gsStructuralAnalysisOps<real_t>::Stiffness_t Stiffness = 
-        [&K](gsSparseMatrix<real_t> & m) 
+    gsStructuralAnalysisOps<real_t>::Stiffness_t Stiffness =
+        [&K](gsSparseMatrix<real_t> & m)
         { m = K; return true; };
 
 
@@ -338,30 +333,25 @@ int main(int argc, char *argv[])
                    << "\t ||A|| = " << A.norm() << "\n";
             timestep_checkpoint = timestep;
         }
-        
+
         // Read stress data from preCICE (3D forces on top and bottom surfaces)
         gsMatrix<> stressDataRead;
         participant.readData(SolidMesh, StressData, quadPointIDs, stressDataRead);
-        gsDebugVar(stressDataRead.dim());
 
         // Now we know the exact ordering: first quad_xy_front.cols() points are from front,
         // next quad_xy_back.cols() points are from back
         index_t numFrontPoints = quad_xy_front.cols();
         index_t numBackPoints = quad_xy_back.cols();
-        
-        
+
+
         // Average forces from front (top) and back (bottom) surfaces to get mid-surface forces
         gsMatrix<> avgForces(3, numFrontPoints);
-        
+
         for (index_t i = 0; i < numFrontPoints; ++i)
         {
             avgForces.col(i) =  (stressDataRead.col(i) + stressDataRead.col(numFrontPoints + i));
         }
 
-        // avgForces.row(0) << avgForces.row(2);
-
-        // avgForces.row(2).setZero();
-        
         // Extract 2D parametric coordinates from 3D front boundary
         gsMatrix<> surf_quad_uv(2, numFrontPoints);
         for (index_t i = 0; i < numFrontPoints; ++i)
@@ -369,17 +359,13 @@ int main(int argc, char *argv[])
             surf_quad_uv(0, i) = quad_uv_front(0, i);  // u parameter
             surf_quad_uv(1, i) = quad_uv_front(1, i);  // v parameter
         }
-        
+
         // Evaluate 2D positions for these parametric points
         gsMatrix<> surf_quad_xy = surface.eval(surf_quad_uv);
         // Update the quadPointsData with the average forces for the look up function
         quadPointsData = avgForces;
         // quadPointsData.setOnes();
 
-        // Debug output
-        gsDebugVar(quadPointsData.norm());
-        gsDebugVar(avgForces.norm());
-        
         if (get_readTime)
             t_read += participant.readTime();
         assembler->assemble();
@@ -399,16 +385,16 @@ int main(int argc, char *argv[])
 
         // Calculate deformed surface and create deformed volume
         gsTensorBSpline<2, real_t> deformed_surface(basis, solution.patch(0).coefs());
-        
+
         // Create deformed 3D volume using surfaceToVolume
         gsTensorBSpline<3, real_t> deformed_volume3D = surfaceToVolume(deformed_surface, thickness);
-        
+
         // Evaluate deformed positions at coupling points
         gsMatrix<> deformed_quad_xy = deformed_volume3D.eval(quad_uv);
-        
+
         // Calculate 3D displacement
         gsMatrix<> displacementData = deformed_quad_xy - quad_xy;
-        
+
         // Write 3D displacement data for coupling
         participant.writeData(SolidMesh, DisplacementData, quadPointIDs, displacementData);
 
@@ -451,7 +437,7 @@ int main(int argc, char *argv[])
                 std::string fileNameVol = "deformed_volume" + util::to_string(timestep);
                 collection_volume.addTimestep(fileNameVol, time, ".vts");
             }
-        
+
         }
     } // end while coupling loop
 
@@ -463,11 +449,12 @@ int main(int argc, char *argv[])
     if (plot)
     {
         collection.save();
-        collection_surface.save();  
+        collection_surface.save();
         collection_volume.save();
-        
+
     }
 
+    delete assembler;
     delete timeIntegrator;
     return EXIT_SUCCESS;
 }

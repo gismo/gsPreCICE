@@ -1,4 +1,4 @@
-/** @file heat-equation-coupling.cpp
+/** @file partitioned-heat-conduction.cpp
 
     @brief Heat equation participant for a double coupled heat equation
 
@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
     gsConstantFunction<> f(beta-2-2*alpha,2);
     gsFunctionExpr<> u_ex("1+x^2+" + std::to_string(alpha) + "*y^2 + " + std::to_string(beta) + "*" + std::to_string(time),2);
 
-    gsMultiBasis<> bases(patches);//true: poly-splines (not NURBS)
+    gsMultiBasis<> bases(patches); // true: poly-splines (not NURBS)
 
     bases.setDegree( bases.maxCwiseDegree() + numElevate);
 
@@ -90,7 +90,10 @@ int main(int argc, char *argv[])
         GISMO_ERROR("Side unknown");
 
     patchSide couplingInterface(0,couplingSide);
-    typename gsBasis<real_t>::domainIter domIt = bases.basis(couplingInterface.patch).makeDomainIterator(couplingInterface.side());
+    // Use STL-style domain iterators on the boundary side
+    const gsBasis<real_t>& basisOnPatch = bases.basis(couplingInterface.patch);
+    typename gsBasis<real_t>::domainIter domIt    = basisOnPatch.domain()->beginBdr(couplingInterface.side());
+    typename gsBasis<real_t>::domainIter domItEnd = basisOnPatch.domain()->endBdr(couplingInterface.side());
     index_t rows = patches.targetDim();
     gsMatrix<> nodes;
     // Start iteration over elements
@@ -98,30 +101,27 @@ int main(int argc, char *argv[])
     index_t k=0;
 
     gsOptionList quadOptions = A.options();
-    // NEED A DIFFERENT RULE FOR dirichlet::interpolation --> see: gsGaussRule<T> bdQuRule(basis, 1.0, 1, iter->side().direction());
-    /*
-        quadOptions.addInt("quRule","Quadrature rule [1:GaussLegendre,2:GaussLobatto]",1);
-        quadOptions.addReal("quA","Number of quadrature points: quA*deg + quB",1.0);
-        quadOptions.addInt("quB","Number of quadrature points: quA*deg + quB",1);
-    */
+    // Quadrature options can be customized via A.options()
 
     index_t quadSize = 0;
     typename gsQuadRule<real_t>::uPtr QuRule; // Quadrature rule  ---->OUT
-    for (; domIt->good(); domIt->next(), k++ )
+    for (; domIt < domItEnd; ++domIt, ++k)
     {
-        QuRule = gsQuadrature::getPtr(bases.basis(couplingInterface.patch), quadOptions,couplingInterface.side().direction());
-        quadSize+=QuRule->numNodes();
+        QuRule = gsQuadrature::getPtr(basisOnPatch, quadOptions, couplingInterface.side().direction());
+        quadSize += QuRule->numNodes();
     }
     gsMatrix<> uv(rows,quadSize); // Coordinates of the quadrature points in parameter space
     gsMatrix<> xy(rows,quadSize); // Coordinates of the quadrature points in physical space
 
     index_t offset = 0;
 
-    for (domIt->reset(); domIt->good(); domIt->next(), k++ )
+    // Reset iterator and loop again to fill uv/xy
+    domIt = basisOnPatch.domain()->beginBdr(couplingInterface.side());
+    for (; domIt < domItEnd; ++domIt, ++k )
     {
-        QuRule = gsQuadrature::getPtr(bases.basis(couplingInterface.patch), quadOptions,couplingInterface.side().direction());
+        QuRule = gsQuadrature::getPtr(basisOnPatch, quadOptions, couplingInterface.side().direction());
         // Map the Quadrature rule to the element
-        QuRule->mapTo( domIt->lowerCorner(), domIt->upperCorner(),
+        QuRule->mapTo( domIt.lowerCorner(), domIt.upperCorner(),
                        nodes, tmp);
         uv.block(0,offset,rows,QuRule->numNodes()) = nodes;
 
@@ -132,29 +132,61 @@ int main(int argc, char *argv[])
     }
 
     std::string membername;
-    if (side==0) //left
+    if (side==0) //left participant
         membername = "Dirichlet";
-    else if (side==1) //right
+    else if (side==1) //right participant
         membername = "Neumann";
     else
         GISMO_ERROR("Side unknown");
 
+    // PreCICE participants and meshes per provided config
+    // Dirichlet provides Dirichlet-Mesh, reads Temperature on Dirichlet-Mesh, writes Heat-Flux on Neumann-Mesh
+    // Neumann   provides Neumann-Mesh,   reads Heat-Flux on Neumann-Mesh,   writes Temperature on Dirichlet-Mesh
+    const std::string localMeshName  = membername + "-Mesh";
+    const std::string remoteMeshName = (membername=="Dirichlet") ? std::string("Neumann-Mesh") : std::string("Dirichlet-Mesh");
+    const std::string tempName = "Temperature";
+    const std::string fluxName = "Heat-Flux";
+
     gsPreCICE<real_t> interface(membername, precice_config);
-    std::string meshName = membername + "-Mesh";
-    interface.addMesh(meshName,xy);
+    // Register local mesh coordinates
+    interface.addMesh(localMeshName, xy);
+
+    // Define access region for the received mesh in serial mode
+    // Use a generous bounding box pattern seen in other examples
+    {
+        gsMatrix<> bbox(rows, 2);
+        bbox.col(0).setConstant(-1e300);
+        bbox.col(1).setConstant( 1e300);
+        bbox.transposeInPlace();
+        bbox.resize(1, bbox.rows() * bbox.cols());
+        interface.setMeshAccessRegion(remoteMeshName, bbox);
+    }
 
     interface.requiresInitialData();
 
     real_t precice_dt = interface.initialize();
 
-    std::string tempName = "Temperature";
-    std::string fluxName = "Heat-Flux";
+    // Direct-access: fetch partner mesh vertex IDs and coordinates.
+    // Evaluate quantities at partner coordinates (no reordering needed).
+    gsVector<index_t> remoteIDs;
+    gsMatrix<>        remoteCoords;
+    interface.getMeshVertexIDsAndCoordinates(remoteMeshName, remoteIDs, remoteCoords);
+    // Invert partner physical coords to param coords on our coupling patch
+    gsMatrix<> uvRemote;
+    patches.patch(couplingInterface.patch).invertPoints(remoteCoords, uvRemote, 1e-10);
+    // Ensure boundary parameter is exact for evalBdr
+    const int bdir = couplingInterface.side().direction();
+    const real_t bpar = couplingInterface.side().parameter();
+    for (index_t i = 0; i != uvRemote.cols(); ++i)
+        uvRemote(bdir, i) = bpar;
 
 // ----------------------------------------------------------------------------------------------
 
     gsBoundaryConditions<> bcInfo;
-    gsPreCICEFunction<real_t> g_CD(&interface,meshName,(side==0 ? tempName : fluxName),patches,1);
-    gsPreCICEFunction<real_t> g_CN(&interface,meshName,(side==0 ? tempName : fluxName),patches,1);
+    // Read functions according to participant role and config
+    // Dirichlet reads Temperature on Dirichlet-Mesh; Neumann reads Heat-Flux on Neumann-Mesh
+    gsPreCICEFunction<real_t> g_CD(&interface, (membername=="Dirichlet" ? localMeshName  : remoteMeshName), tempName, patches, 1);
+    gsPreCICEFunction<real_t> g_CN(&interface, (membername=="Neumann"   ? localMeshName  : remoteMeshName), fluxName, patches, 1);
     gsFunction<> * g_C = &u_ex;
 
     bcInfo.addCondition(0, boundary::south, condition_type::dirichlet, &u_ex, 0, false, 0);
@@ -188,13 +220,11 @@ int main(int argc, char *argv[])
     auto ff = A.getCoeff(f, G);
 
     // Set the solution
-    gsMatrix<> solVector, solVector_ini;
+    gsMatrix<> solVector;
     solution u_sol = A.getSolution(u, solVector);
-    solution u_ini = A.getSolution(u, solVector);
 
     u.setup(bcInfo, dirichlet::homogeneous, 0);
     A.initSystem();
-    gsDebugVar(A.numDofs());
     A.assemble( u * u.tr() * meas(G));
     gsSparseMatrix<> M = A.matrix();
 
@@ -211,9 +241,8 @@ int main(int argc, char *argv[])
     A.initSystem();
     A.assemble( u * u.tr() * meas(G), u * uex * meas(G) );
     solver.compute(A.matrix());
-    solVector_ini = solVector = solver.solve(A.rhs());
-
-        gsMatrix<> result(1,uv.cols()), tmp2;
+    solVector = solver.solve(A.rhs());
+    gsMatrix<> result(1,uv.cols()), tmp2;
     // Write initial data
     if (interface.requiresWritingCheckpoint())
     {
@@ -221,8 +250,8 @@ int main(int argc, char *argv[])
         {
             if (side==0)
             {
-                gsWarn<<"Write the flux here!!!\n";
-                tmp2 = ev.eval( - jac(u_sol) * nv(G).normalized(),uv.col(k));
+                // Normal heat flux q_n = -k * grad(u) · n on the coupling boundary
+                tmp2 = ev.evalBdr( - k_temp * (igrad(u_sol, G) * nv(G).normalized()), uv.col(k), couplingInterface);
                 result(0,k) = tmp2.at(0);
             }
             else
@@ -231,18 +260,28 @@ int main(int argc, char *argv[])
                 result(0,k) = tmp2.at(0);
             }
         }
-        gsDebugVar(result);
-        interface.writeData(meshName,side==0 ? fluxName : tempName,xy,result);
+        // Build values at partner coordinates (order matches remoteIDs)
+        result.resize(1, uvRemote.cols());
+        for (index_t k=0; k!=uvRemote.cols(); ++k)
+        {
+            if (side==0) // Dirichlet writes flux
+            {
+                tmp2 = ev.evalBdr( - k_temp * (igrad(u_sol, G) * nv(G).normalized()), uvRemote.col(k), couplingInterface);
+                result(0,k) = tmp2.at(0);
+            }
+            else // Neumann writes temperature
+            {
+                tmp2 = ev.evalBdr(u_sol, uvRemote.col(k), couplingInterface);
+                result(0,k) = tmp2.at(0);
+            }
+        }
+        // Write on partner mesh using its vertex IDs (direct-access config)
+        interface.writeData(remoteMeshName, (side==0 ? fluxName : tempName), remoteIDs, result);
     }
-    // interface.initialize_data();
-
-    // interface.readBlockScalarData(meshName,side==0 ? tempName : fluxName,xy,result);
-    // gsDebugVar(result);
 
     // Initialize the RHS for assembly
     if (side==0)
         g_C = &g_CD;
-    gsDebugVar(bcInfo);
     A.initSystem();
     A.assemble( k_temp * igrad(u, G) * igrad(u, G).tr() * meas(G), u * uex * meas(G) );
     gsSparseMatrix<> K = A.matrix();
@@ -253,33 +292,37 @@ int main(int argc, char *argv[])
     gsVector<> F_checkpoint = F;
     gsMatrix<> solVector_checkpoint = solVector;
 
-    gsParaviewCollection collection("solution");
-    gsParaviewCollection exact_collection("exact_solution");
+    gsParaviewCollection collection(membername + "_solution");
+    gsParaviewCollection exact_collection(membername + "_exact_solution");
 
     index_t timestep = 0;
     index_t timestep_checkpoint = 0;
     real_t t_checkpoint = 0;
     if (plot)
     {
-        std::string fileName = "solution_" + util::to_string(timestep);
+        std::string fileName = membername + "_solution_" + util::to_string(timestep);
         ev.options().setSwitch("plot.elements", true);
         ev.options().setInt("plot.npts", 1000);
         ev.writeParaview( u_sol   , G, fileName);
         for (size_t p=0; p!=patches.nPatches(); p++)
         {
-          fileName = "solution_" + util::to_string(timestep) + std::to_string(p);
+          fileName = membername + "_solution_" + util::to_string(timestep) + std::to_string(p);
           collection.addTimestep(fileName,time,".vts");
         }
 
-        // fileName = "exact_solution_" + util::to_string(timestep);
-        // ev.writeParaview( uex   , G, fileName);
-        // for (size_t p=0; p!=patches.nPatches(); p++)
-        // {
-        //   fileName = "exact_solution_" + util::to_string(timestep) + std::to_string(p);
-        //   exact_collection.addTimestep(fileName,time,".vts");
-        // }
+        // write exact solution at initial time
+        fileName = membername + "_exact_solution_" + util::to_string(timestep);
+        {
+            auto uex_coeff = A.getCoeff(u_ex, G);
+            ev.writeParaview( uex_coeff , G, fileName);
+        }
+        for (size_t p=0; p!=patches.nPatches(); p++)
+        {
+          std::string fileName2 = membername + "_exact_solution_" + util::to_string(timestep) + std::to_string(p);
+          exact_collection.addTimestep(fileName2,time,".vts");
+        }
 
-        ev.writeParaview( u_sol   , G, "initial_solution");
+        ev.writeParaview( u_sol   , G, membername + "_initial_solution");
 
     }
 
@@ -300,7 +343,6 @@ int main(int argc, char *argv[])
         // save checkpoint
         if (interface.requiresWritingCheckpoint())
         {
-            gsDebugVar("Write checkpoint");
             F_checkpoint = F0;
             t_checkpoint = time;
             timestep_checkpoint = timestep;
@@ -318,16 +360,10 @@ int main(int argc, char *argv[])
         gsMatrix<> result(1,uv.cols()), tmp;
         for (index_t k=0; k!=uv.cols(); k++)
         {
-            // gsDebugVar(ev.eval(nv(G),uv.col(k)));
-            // tmp = ev.eval(k_temp * igrad(u_sol,G),uv.col(k));
-            // Only exchange y component
-            // result(0,k) = -tmp.at(1);
-            //
-            //
             if (side==0)
             {
-                gsWarn<<"Write the flux here!!!\n";
-                tmp = ev.eval(jac(u_sol) * nv(G).normalized(),uv.col(k));
+                // Normal heat flux q_n = -k * grad(u) · n on the coupling boundary
+                tmp = ev.evalBdr( - k_temp * (igrad(u_sol, G) * nv(G).normalized()), uv.col(k), couplingInterface);
                 result(0,k) = tmp.at(0);
             }
             else
@@ -336,7 +372,23 @@ int main(int argc, char *argv[])
                 result(0,k) = tmp.at(0);
             }
         }
-        interface.writeData(meshName,side==0 ? fluxName : tempName,xy,result);
+        // Build values at partner coordinates (order matches remoteIDs)
+        result.resize(1, uvRemote.cols());
+        for (index_t k=0; k!=uvRemote.cols(); ++k)
+        {
+            if (side==0) // Dirichlet writes flux
+            {
+                tmp = ev.evalBdr( - k_temp * (igrad(u_sol, G) * nv(G).normalized()), uvRemote.col(k), couplingInterface);
+                result(0,k) = tmp.at(0);
+            }
+            else // Neumann writes temperature
+            {
+                tmp = ev.evalBdr(u_sol, uvRemote.col(k), couplingInterface);
+                result(0,k) = tmp.at(0);
+            }
+        }
+        // Write on partner mesh using its vertex IDs (direct-access config)
+        interface.writeData(remoteMeshName, (side==0 ? fluxName : tempName), remoteIDs, result);
 
         // do the coupling
         precice_dt = interface.advance(dt);
@@ -348,7 +400,6 @@ int main(int argc, char *argv[])
 
         if (interface.requiresReadingCheckpoint())
         {
-            gsDebugVar("Read checkpoint");
             F0 = F_checkpoint;
             time = t_checkpoint;
             timestep = timestep_checkpoint;
@@ -358,14 +409,26 @@ int main(int argc, char *argv[])
         {
             if (timestep % plotmod==0 && plot)
             {
-                std::string fileName = "solution_" + util::to_string(timestep);
+                std::string fileName = membername + "_solution_" + util::to_string(timestep);
                 ev.options().setSwitch("plot.elements", true);
                 ev.options().setInt("plot.npts", 1000);
                 ev.writeParaview( u_sol   , G, fileName);
                 for (size_t p=0; p!=patches.nPatches(); p++)
                 {
-                  fileName = "solution_" + util::to_string(timestep) + std::to_string(p);
+                  fileName = membername + "_solution_" + util::to_string(timestep) + std::to_string(p);
                   collection.addTimestep(fileName,time,".vts");
+                }
+
+                // write exact solution at current time
+                std::string fileNameExact = membername + "_exact_solution_" + util::to_string(timestep);
+                {
+                    auto uex_coeff = A.getCoeff(u_ex, G);
+                    ev.writeParaview( uex_coeff , G, fileNameExact);
+                }
+                for (size_t p=0; p!=patches.nPatches(); p++)
+                {
+                  std::string fileName2 = membername + "_exact_solution_" + util::to_string(timestep) + std::to_string(p);
+                  exact_collection.addTimestep(fileName2,time,".vts");
                 }
             }
         }

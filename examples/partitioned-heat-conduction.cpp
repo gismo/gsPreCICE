@@ -90,7 +90,9 @@ int main(int argc, char *argv[])
         GISMO_ERROR("Side unknown");
 
     patchSide couplingInterface(0,couplingSide);
-    typename gsBasis<real_t>::domainIter domIt = bases.basis(couplingInterface.patch).makeDomainIterator(couplingInterface.side());
+    const gsBasis<real_t> & basisOnPatch = bases.basis(couplingInterface.patch);
+    typename gsBasis<real_t>::domainIter domIt    = basisOnPatch.domain()->beginBdr(couplingInterface.side());
+    typename gsBasis<real_t>::domainIter domItEnd = basisOnPatch.domain()->endBdr(couplingInterface.side());
     index_t rows = patches.targetDim();
     gsMatrix<> nodes;
     // Start iteration over elements
@@ -107,21 +109,23 @@ int main(int argc, char *argv[])
 
     index_t quadSize = 0;
     typename gsQuadRule<real_t>::uPtr QuRule; // Quadrature rule  ---->OUT
-    for (; domIt->good(); domIt->next(), k++ )
+    for (; domIt < domItEnd; ++domIt, ++k)
     {
-        QuRule = gsQuadrature::getPtr(bases.basis(couplingInterface.patch), quadOptions,couplingInterface.side().direction());
-        quadSize+=QuRule->numNodes();
+        QuRule = gsQuadrature::getPtr(basisOnPatch, quadOptions, couplingInterface.side().direction());
+        quadSize += QuRule->numNodes();
     }
     gsMatrix<> uv(rows,quadSize); // Coordinates of the quadrature points in parameter space
     gsMatrix<> xy(rows,quadSize); // Coordinates of the quadrature points in physical space
 
     index_t offset = 0;
 
-    for (domIt->reset(); domIt->good(); domIt->next(), k++ )
+    // Reset iterator and loop again to fill uv/xy
+    domIt = basisOnPatch.domain()->beginBdr(couplingInterface.side());
+    for (; domIt < domItEnd; ++domIt, ++k)
     {
-        QuRule = gsQuadrature::getPtr(bases.basis(couplingInterface.patch), quadOptions,couplingInterface.side().direction());
+        QuRule = gsQuadrature::getPtr(basisOnPatch, quadOptions, couplingInterface.side().direction());
         // Map the Quadrature rule to the element
-        QuRule->mapTo( domIt->lowerCorner(), domIt->upperCorner(),
+        QuRule->mapTo( domIt.lowerCorner(), domIt.upperCorner(),
                        nodes, tmp);
         uv.block(0,offset,rows,QuRule->numNodes()) = nodes;
 

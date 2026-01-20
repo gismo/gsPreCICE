@@ -36,6 +36,14 @@ inline void getKnots(const gsBasis<T> & source, std::vector<gsKnotVector<T>> & t
             tensorKnots[d] = basis->knots(d);
 }
 
+/// Specialization for 1D gsTensorNurbsBasis (which only has knots() without index parameter)
+template <class T>
+inline void getKnots1DNurbs(const gsBasis<T> & source, std::vector<gsKnotVector<T>> & tensorKnots)
+{
+    if ( const gsTensorNurbsBasis<1,T> * basis = dynamic_cast<const gsTensorNurbsBasis<1,T>*>(&source) )
+        tensorKnots[0] = basis->knots();
+}
+
 /**
  * @brief      Puts all the knots in a vector (for 1D bases only)
  *
@@ -60,7 +68,7 @@ gsVector<T> knotsToVector(const gsBasis<T> & basis)
     {
         case 1:
             getKnots<1,T,gsTensorBSplineBasis>(basis,tensorKnots);
-            getKnots<1,T,gsTensorNurbsBasis>(basis,tensorKnots);
+            getKnots1DNurbs<T>(basis,tensorKnots);
             break;
         default:
             GISMO_ERROR("Basis type not understood");
@@ -97,7 +105,7 @@ gsMatrix<T> knotsToMatrix(const gsBasis<T> & basis)
     {
         case 1:
             getKnots<1,T,gsTensorBSplineBasis>(basis,tensorKnots);
-            getKnots<1,T,gsTensorNurbsBasis>(basis,tensorKnots);
+            getKnots1DNurbs<T>(basis,tensorKnots);
             break;
         case 2:
             getKnots<2,T,gsTensorBSplineBasis>(basis,tensorKnots);

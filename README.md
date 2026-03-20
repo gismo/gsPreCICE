@@ -8,6 +8,7 @@ Module enabling partitioned multiphysics simulations for G+Smo with other librar
 |CMake flags|```-DGISMO_OPTIONAL="<other submodules>;gsPreCICE"```|
 |--:|---|
 |License|![GitHub License](https://img.shields.io/github/license/gismo/gismo?color=008A00)|
+|DOI|[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15874921.svg)](https://doi.org/10.5281/zenodo.15874921)|
 |OS support|Linux, Windows, macOS|
 |Build status|[![ci](https://github.com/gismo/gsPreCICE/actions/workflows/ci.yml/badge.svg)](https://github.com/gismo/gsPreCICE/actions/workflows/ci.yml)|
 |Developers/maintainers| [![Static Badge](https://img.shields.io/badge/@Crazy--Rich--Meghan-008A00)](https://github.com/Crazy-Rich-Meghan) [![Static Badge](https://img.shields.io/badge/@hverhelst-008A00)](https://github.com/hverhelst)|

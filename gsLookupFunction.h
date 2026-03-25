@@ -48,7 +48,7 @@ public:
                                const gsMatrix<T> & data)
     : gsLookupFunction(1)
     {
-        this->add(points, data);
+        this->set(0, points, data);
     }
 
     /// Destructor

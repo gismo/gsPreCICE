@@ -18,8 +18,8 @@
 #include <gsPreCICE/gsPreCICEFunction.h>
 // #include <gsPreCICE/gsPreCICEVectorFunction.h>
 
-#include <gsElasticity/gsMassAssembler.h>
-#include <gsElasticity/gsElasticityAssembler.h>
+#include <gsElasticity/src/gsMassAssembler.h>
+#include <gsElasticity/src/gsElasticityAssembler.h>
 
 
 #ifdef gsStructuralAnalysis_ENABLED

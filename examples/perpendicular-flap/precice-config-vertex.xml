@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  preCICE configuration for VERTEX-BASED FSI coupling
+  Data is exchanged at quadrature points using RBF interpolation mapping.
+
+  This is the vertex-based alternative to precice-config-iga.xml (spline-based).
+  Both approaches should give equivalent results.
+-->
+<precice-configuration>
+  <log>
+    <sink
+      filter="%Severity% > debug and %Rank% = 0"
+      format="---[precice] %ColorizedSeverity% %Message%"
+      enabled="true" />
+  </log>
+
+  <data:vector name="Stress" />
+  <data:vector name="Displacement" />
+
+  <!-- Fluid mesh: quadrature points on FSI interface -->
+  <mesh name="Fluid-Mesh" dimensions="2">
+    <use-data name="Stress" />
+    <use-data name="Displacement" />
+  </mesh>
+
+  <!-- Solid mesh: quadrature points on FSI interface -->
+  <mesh name="Solid-Mesh" dimensions="2">
+    <use-data name="Displacement" />
+    <use-data name="Stress" />
+  </mesh>
+
+  <participant name="Fluid">
+    <provide-mesh name="Fluid-Mesh" />
+    <receive-mesh name="Solid-Mesh" from="Solid" />
+    <write-data name="Stress" mesh="Fluid-Mesh" />
+    <read-data name="Displacement" mesh="Fluid-Mesh" />
+    <!-- RBF mapping for mesh-to-mesh interpolation -->
+    <!-- Stress/traction: CONSISTENT mapping (solid expects traction, not force) -->
+    <!-- Note: The solid uses gsLookupFunction for neumann BC which expects traction values -->
+    <mapping:rbf direction="write" from="Fluid-Mesh" to="Solid-Mesh" constraint="consistent">
+      <basis-function:compact-polynomial-c6 support-radius="0.3" />
+    </mapping:rbf>
+    <!-- Displacement: CONSISTENT mapping for accurate geometry -->
+    <mapping:rbf direction="read" from="Solid-Mesh" to="Fluid-Mesh" constraint="consistent">
+      <basis-function:compact-polynomial-c6 support-radius="0.3" />
+    </mapping:rbf>
+  </participant>
+
+  <participant name="Solid">
+    <provide-mesh name="Solid-Mesh" />
+    <write-data name="Displacement" mesh="Solid-Mesh" />
+    <read-data name="Stress" mesh="Solid-Mesh" />
+    <watch-point mesh="Solid-Mesh" name="Flap-Tip" coordinate="0.0;1" />
+  </participant>
+
+  <m2n:sockets acceptor="Fluid" connector="Solid" exchange-directory=".." />
+
+  <coupling-scheme:parallel-implicit>
+    <time-window-size value="0.01" />
+    <max-time value="5.0" />
+    <participants first="Fluid" second="Solid" />
+    <exchange data="Stress" mesh="Solid-Mesh" from="Fluid" to="Solid" />
+    <exchange data="Displacement" mesh="Solid-Mesh" from="Solid" to="Fluid" />
+    <max-iterations value="50" />
+    <relative-convergence-measure limit="5e-3" data="Displacement" mesh="Solid-Mesh" />
+    <relative-convergence-measure limit="5e-3" data="Stress" mesh="Solid-Mesh" />
+    <acceleration:IQN-ILS>
+      <data name="Displacement" mesh="Solid-Mesh" />
+      <data name="Stress" mesh="Solid-Mesh" />
+      <preconditioner type="residual-sum" />
+      <filter type="QR2" limit="1e-2" />
+      <initial-relaxation value="0.5" />
+      <max-used-iterations value="100" />
+      <time-windows-reused value="15" />
+    </acceleration:IQN-ILS>
+  </coupling-scheme:parallel-implicit>
+</precice-configuration>

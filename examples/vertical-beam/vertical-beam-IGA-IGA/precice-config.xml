@@ -37,7 +37,7 @@
   <participant name="Fluid">
       <provide-mesh name="ForceControlPointMesh" />
       <provide-mesh name="ForceKnotMesh" />
-      <receive-mesh name="GeometryControlPointMesh" from="Solid" direct-access="true"/>
+      <receive-mesh name="GeometryControlPointMesh" from="Solid" api-access="true"/>
       <receive-mesh name="GeometryKnotMesh" from="Solid" />
       <read-data    name="GeometryControlPointData" mesh="GeometryControlPointMesh" />
 <!--      <read-data    name="GeometryKnotData" mesh="GeometryKnotMesh" />-->
@@ -48,7 +48,7 @@
   <participant name="Solid">
       <provide-mesh name="GeometryControlPointMesh" />
       <provide-mesh name="GeometryKnotMesh" />
-      <receive-mesh name="ForceControlPointMesh" from="Fluid" direct-access="true"/>
+      <receive-mesh name="ForceControlPointMesh" from="Fluid" api-access="true"/>
       <receive-mesh name="ForceKnotMesh" from="Fluid" />
 <!--      <read-data    name="ForceKnotMeshData" mesh="ForceKnotMesh" />-->
       <read-data    name="ForceControlPointData"            mesh="ForceControlPointMesh" />

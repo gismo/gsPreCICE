@@ -37,7 +37,7 @@
 <participant name="Dirichlet">
     <provide-mesh name="Flux-Control-Point-Mesh" />
     <provide-mesh name="Flux-Knot-Mesh" />
-    <receive-mesh name="Geometry-Control-Point-Mesh" from="Neumann" direct-access="true"/>
+    <receive-mesh name="Geometry-Control-Point-Mesh" from="Neumann" api-access="true"/>
     <receive-mesh name="Geometry-Knot-Mesh" from="Neumann" />
     <read-data name="Temperature-Data" mesh="Geometry-Control-Point-Mesh" />
     <write-data name="Flux-Control-Point-Data" mesh="Flux-Control-Point-Mesh" />
@@ -46,7 +46,7 @@
 <participant name="Neumann">
     <provide-mesh name="Geometry-Control-Point-Mesh" />
     <provide-mesh name="Geometry-Knot-Mesh" />
-    <receive-mesh name="Flux-Control-Point-Mesh" from="Dirichlet" direct-access="true"/>
+    <receive-mesh name="Flux-Control-Point-Mesh" from="Dirichlet" api-access="true"/>
     <receive-mesh name="Flux-Knot-Mesh" from="Dirichlet" />
     <read-data name="Flux-Control-Point-Data" mesh="Flux-Control-Point-Mesh" />
     <write-data name="Temperature-Data" mesh="Geometry-Control-Point-Mesh" />

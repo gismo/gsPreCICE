@@ -29,9 +29,9 @@
   </mesh>
 
   <participant name="Fluid">
-    <receive-mesh name="ForceMesh" from="Solid" direct-access="false"/>
-    <receive-mesh name="KnotMesh" from="Solid" direct-access="false"/>
-    <receive-mesh name="ControlPointMesh" from="Solid" direct-access="true"/>
+    <receive-mesh name="ForceMesh" from="Solid" api-access="false"/>
+    <receive-mesh name="KnotMesh" from="Solid" api-access="false"/>
+    <receive-mesh name="ControlPointMesh" from="Solid" api-access="true"/>
     <read-data name="ControlPointData" mesh="ControlPointMesh" />
     <write-data name="ForceData" mesh="ForceMesh" />
   </participant>

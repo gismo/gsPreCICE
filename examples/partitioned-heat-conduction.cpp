@@ -12,6 +12,8 @@
 */
 
 #include <gismo.h>
+#include <fstream>
+#include <iterator>
 #include <gsPreCICE/gsPreCICE.h>
 #include <gsPreCICE/gsPreCICEFunction.h>
 
@@ -36,6 +38,19 @@ int main(int argc, char *argv[])
     cmd.addInt("m","plotmod", "Modulo for plotting, i.e. if plotmod==1, plots every timestep", plotmod);
     cmd.addInt("s","side", "Patchside of interface: 0 (Dirichlet), 1 (Neumann)", side);
     try { cmd.getValues(argc,argv); } catch (int rv) { return rv; }
+
+    auto configContains = [](const std::string & fileName, const std::string & needle) -> bool
+    {
+        std::ifstream config(fileName.c_str());
+        GISMO_ASSERT(config.good(), "No precice config file has been defined");
+        const std::string contents((std::istreambuf_iterator<char>(config)),
+                                   std::istreambuf_iterator<char>());
+        return contents.find(needle) != std::string::npos;
+    };
+
+    const bool useDirectMeshAccess =
+        configContains(precice_config, "direct-access=\"true\"") ||
+        configContains(precice_config, "api-access=\"true\"");
 
     //! [Read input file]
 
@@ -151,9 +166,9 @@ int main(int argc, char *argv[])
     // Register local mesh coordinates
     interface.addMesh(localMeshName, xy);
 
-    // Define access region for the received mesh in serial mode
-    // Use a generous bounding box pattern seen in other examples
+    if (useDirectMeshAccess)
     {
+        // Restrict mesh access to the remote interface only when the config enables API access.
         gsMatrix<> bbox(rows, 2);
         bbox.col(0).setConstant(-1e300);
         bbox.col(1).setConstant( 1e300);
@@ -166,19 +181,22 @@ int main(int argc, char *argv[])
 
     real_t precice_dt = interface.initialize();
 
-    // Direct-access: fetch partner mesh vertex IDs and coordinates.
-    // Evaluate quantities at partner coordinates (no reordering needed).
     gsVector<index_t> remoteIDs;
     gsMatrix<>        remoteCoords;
-    interface.getMeshVertexIDsAndCoordinates(remoteMeshName, remoteIDs, remoteCoords);
-    // Invert partner physical coords to param coords on our coupling patch
     gsMatrix<> uvRemote;
-    patches.patch(couplingInterface.patch).invertPoints(remoteCoords, uvRemote, 1e-10);
-    // Ensure boundary parameter is exact for evalBdr
-    const int bdir = couplingInterface.side().direction();
-    const real_t bpar = couplingInterface.side().parameter();
-    for (index_t i = 0; i != uvRemote.cols(); ++i)
-        uvRemote(bdir, i) = bpar;
+    if (useDirectMeshAccess)
+    {
+        // Direct-access: fetch partner mesh vertex IDs and coordinates.
+        // Evaluate quantities at partner coordinates (no reordering needed).
+        interface.getMeshVertexIDsAndCoordinates(remoteMeshName, remoteIDs, remoteCoords);
+        patches.patch(couplingInterface.patch).invertPoints(remoteCoords, uvRemote, 1e-10);
+
+        // Ensure boundary parameter is exact for evalBdr.
+        const int bdir = couplingInterface.side().direction();
+        const real_t bpar = couplingInterface.side().parameter();
+        for (index_t i = 0; i != uvRemote.cols(); ++i)
+            uvRemote(bdir, i) = bpar;
+    }
 
 // ----------------------------------------------------------------------------------------------
 
@@ -260,23 +278,27 @@ int main(int argc, char *argv[])
                 result(0,k) = tmp2.at(0);
             }
         }
-        // Build values at partner coordinates (order matches remoteIDs)
-        result.resize(1, uvRemote.cols());
-        for (index_t k=0; k!=uvRemote.cols(); ++k)
+        if (useDirectMeshAccess)
         {
-            if (side==0) // Dirichlet writes flux
+            // Build values at partner coordinates (order matches remoteIDs).
+            result.resize(1, uvRemote.cols());
+            for (index_t k=0; k!=uvRemote.cols(); ++k)
             {
-                tmp2 = ev.evalBdr( - k_temp * (igrad(u_sol, G) * nv(G).normalized()), uvRemote.col(k), couplingInterface);
-                result(0,k) = tmp2.at(0);
+                if (side==0) // Dirichlet writes flux
+                {
+                    tmp2 = ev.evalBdr( - k_temp * (igrad(u_sol, G) * nv(G).normalized()), uvRemote.col(k), couplingInterface);
+                    result(0,k) = tmp2.at(0);
+                }
+                else // Neumann writes temperature
+                {
+                    tmp2 = ev.evalBdr(u_sol, uvRemote.col(k), couplingInterface);
+                    result(0,k) = tmp2.at(0);
+                }
             }
-            else // Neumann writes temperature
-            {
-                tmp2 = ev.evalBdr(u_sol, uvRemote.col(k), couplingInterface);
-                result(0,k) = tmp2.at(0);
-            }
+            interface.writeData(remoteMeshName, (side==0 ? fluxName : tempName), remoteIDs, result);
         }
-        // Write on partner mesh using its vertex IDs (direct-access config)
-        interface.writeData(remoteMeshName, (side==0 ? fluxName : tempName), remoteIDs, result);
+        else
+            interface.writeData(localMeshName, (side==0 ? fluxName : tempName), xy, result);
     }
 
     // Initialize the RHS for assembly
@@ -372,23 +394,27 @@ int main(int argc, char *argv[])
                 result(0,k) = tmp.at(0);
             }
         }
-        // Build values at partner coordinates (order matches remoteIDs)
-        result.resize(1, uvRemote.cols());
-        for (index_t k=0; k!=uvRemote.cols(); ++k)
+        if (useDirectMeshAccess)
         {
-            if (side==0) // Dirichlet writes flux
+            // Build values at partner coordinates (order matches remoteIDs).
+            result.resize(1, uvRemote.cols());
+            for (index_t k=0; k!=uvRemote.cols(); ++k)
             {
-                tmp = ev.evalBdr( - k_temp * (igrad(u_sol, G) * nv(G).normalized()), uvRemote.col(k), couplingInterface);
-                result(0,k) = tmp.at(0);
+                if (side==0) // Dirichlet writes flux
+                {
+                    tmp = ev.evalBdr( - k_temp * (igrad(u_sol, G) * nv(G).normalized()), uvRemote.col(k), couplingInterface);
+                    result(0,k) = tmp.at(0);
+                }
+                else // Neumann writes temperature
+                {
+                    tmp = ev.evalBdr(u_sol, uvRemote.col(k), couplingInterface);
+                    result(0,k) = tmp.at(0);
+                }
             }
-            else // Neumann writes temperature
-            {
-                tmp = ev.evalBdr(u_sol, uvRemote.col(k), couplingInterface);
-                result(0,k) = tmp.at(0);
-            }
+            interface.writeData(remoteMeshName, (side==0 ? fluxName : tempName), remoteIDs, result);
         }
-        // Write on partner mesh using its vertex IDs (direct-access config)
-        interface.writeData(remoteMeshName, (side==0 ? fluxName : tempName), remoteIDs, result);
+        else
+            interface.writeData(localMeshName, (side==0 ? fluxName : tempName), xy, result);
 
         // do the coupling
         precice_dt = interface.advance(dt);

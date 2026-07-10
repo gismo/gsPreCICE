@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@master
         with:
           repository: gismo/gismo
-          ref: stable
+          ref: dev
           path: ./gismo
 
       - uses: actions/checkout@master

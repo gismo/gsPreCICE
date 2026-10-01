@@ -234,9 +234,9 @@ int main(int argc, char *argv[])
     gsSparseMatrix<> K = assembler->matrix();
 
     gsFileManager::mkdir(dirname);
-    gsParaviewCollection collection(dirname + "/solution");
-    gsParaviewCollection collection_surface(dirname + "/deformed_surface");
-    gsParaviewCollection collection_volume(dirname + "/deformed_volume");
+    gsParaviewCollection<real_t> collection(dirname + "/solution");
+    gsParaviewCollection<real_t> collection_surface(dirname + "/deformed_surface");
+    gsParaviewCollection<real_t> collection_volume(dirname + "/deformed_volume");
 
     ////////////////////////////////////////////////////////////////////////////
     // Time stepping and dynamic solver setup.

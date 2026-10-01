@@ -204,7 +204,7 @@ int main(int argc, char *argv[])
     A_checkpoint = A = gsVector<real_t>::Zero(assembler.numDofs(),1);
 
     // Define the solution collection for Paraview
-    gsParaviewCollection collection("./output/solution");
+    gsParaviewCollection<real_t> collection("./output/solution");
 
     index_t timestep = 0;
     index_t timestep_checkpoint = 0;

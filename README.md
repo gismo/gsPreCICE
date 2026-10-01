@@ -59,7 +59,7 @@ cd fluid-<other solvers>
 
 ## Versions
 
-The submodule is up to date with the recent G+Smo release , and the latest supported preCICE version is v3.1.2.
+Tested with G+Smo v26.09.0 and preCICE v3.2.0.
 
 ## References
 

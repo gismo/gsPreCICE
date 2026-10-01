@@ -153,7 +153,7 @@ int main(int argc, char *argv[])
     index_t timestep = 0;
 
     // Define the solution collection for Paraview
-    gsParaviewCollection collection("./output/solution");
+    gsParaviewCollection<real_t> collection("./output/solution");
 
     gsMatrix<> points(2,1);
     points.col(0)<<0.5,1;

@@ -255,7 +255,7 @@ int main(int argc, char *argv[])
     std::string dirname = "./output";
 
     gsFileManager::mkdir(dirname); 
-    gsParaviewCollection collection(dirname + "/solution");
+    gsParaviewCollection<real_t> collection(dirname + "/solution");
 
     // Time step
     real_t dt = precice_dt;

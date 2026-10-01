@@ -314,38 +314,38 @@ int main(int argc, char *argv[])
     gsVector<> F_checkpoint = F;
     gsMatrix<> solVector_checkpoint = solVector;
 
-    gsParaviewCollection collection(membername + "_solution");
-    gsParaviewCollection exact_collection(membername + "_exact_solution");
+    gsParaviewCollection<real_t> collection(membername + "_solution", ev);
+    gsParaviewCollection<real_t> exact_collection(membername + "_exact_solution", ev);
 
     index_t timestep = 0;
     index_t timestep_checkpoint = 0;
     real_t t_checkpoint = 0;
+    collection.options().setSwitch("elements", true);
+    collection.options().setInt("numPoints", 1000);
+    exact_collection.options() = collection.options();
+
+    auto writeOutput = [&]()
+    {
+        collection.newTimeStep(patches, time);
+        collection.addField(u_sol, "value");
+        collection.saveTimeStep();
+
+        auto uex_coeff = A.getCoeff(u_ex, G);
+        exact_collection.newTimeStep(patches, time);
+        exact_collection.addField(uex_coeff, "value");
+        exact_collection.saveTimeStep();
+    };
+
     if (plot)
     {
-        std::string fileName = membername + "_solution_" + util::to_string(timestep);
-        ev.options().setSwitch("plot.elements", true);
-        ev.options().setInt("plot.npts", 1000);
-        ev.writeParaview( u_sol   , G, fileName);
-        for (size_t p=0; p!=patches.nPatches(); p++)
-        {
-          fileName = membername + "_solution_" + util::to_string(timestep) + std::to_string(p);
-          collection.addTimestep(fileName,time,".vts");
-        }
+        writeOutput();
 
-        // write exact solution at initial time
-        fileName = membername + "_exact_solution_" + util::to_string(timestep);
-        {
-            auto uex_coeff = A.getCoeff(u_ex, G);
-            ev.writeParaview( uex_coeff , G, fileName);
-        }
-        for (size_t p=0; p!=patches.nPatches(); p++)
-        {
-          std::string fileName2 = membername + "_exact_solution_" + util::to_string(timestep) + std::to_string(p);
-          exact_collection.addTimestep(fileName2,time,".vts");
-        }
-
-        ev.writeParaview( u_sol   , G, membername + "_initial_solution");
-
+        gsParaviewCollection<real_t> initial_collection(membername + "_initial_solution", ev);
+        initial_collection.options() = collection.options();
+        initial_collection.newTimeStep(patches, time);
+        initial_collection.addField(u_sol, "value");
+        initial_collection.saveTimeStep();
+        initial_collection.save();
     }
 
     // time += precice_dt;
@@ -434,29 +434,7 @@ int main(int argc, char *argv[])
         else
         {
             if (timestep % plotmod==0 && plot)
-            {
-                std::string fileName = membername + "_solution_" + util::to_string(timestep);
-                ev.options().setSwitch("plot.elements", true);
-                ev.options().setInt("plot.npts", 1000);
-                ev.writeParaview( u_sol   , G, fileName);
-                for (size_t p=0; p!=patches.nPatches(); p++)
-                {
-                  fileName = membername + "_solution_" + util::to_string(timestep) + std::to_string(p);
-                  collection.addTimestep(fileName,time,".vts");
-                }
-
-                // write exact solution at current time
-                std::string fileNameExact = membername + "_exact_solution_" + util::to_string(timestep);
-                {
-                    auto uex_coeff = A.getCoeff(u_ex, G);
-                    ev.writeParaview( uex_coeff , G, fileNameExact);
-                }
-                for (size_t p=0; p!=patches.nPatches(); p++)
-                {
-                  std::string fileName2 = membername + "_exact_solution_" + util::to_string(timestep) + std::to_string(p);
-                  exact_collection.addTimestep(fileName2,time,".vts");
-                }
-            }
+                writeOutput();
         }
     }
 

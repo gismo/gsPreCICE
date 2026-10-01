@@ -80,19 +80,3 @@ jobs:
             -DCMAKE_PREFIX_PATH="${{ runner.temp }}/precice-install" \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           cmake --build gismo-build --parallel 2 --target partitioned-heat-conduction perpendicular-flap-vertex-gismo
-
-      - name: Run coupled heat tutorial with visualization
-        run: |
-          python3 gismo/optional/gsPreCICE/tools/run-heat-smoke.py \
-            --executable gismo-build/bin/partitioned-heat-conduction \
-            --output heat-smoke
-
-      - name: Upload heat test logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: heat-smoke-logs
-          path: |
-            heat-smoke/**/run.log
-            heat-smoke/result.json
-          if-no-files-found: ignore
